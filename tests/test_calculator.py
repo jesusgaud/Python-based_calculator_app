@@ -1,7 +1,7 @@
 from decimal import Decimal
 import pytest
-from calculator.calculator import Calculator
-from calculator.calculations import Calculations
+from app.calculator import Calculator
+from app.calculations import Calculations
 
 @pytest.fixture
 def clear_history_fixture():
