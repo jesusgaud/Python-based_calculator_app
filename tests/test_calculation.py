@@ -9,8 +9,8 @@ implemented in the calculator.operations module, and functionality of the Calcul
 # pylint: disable=unnecessary-dunder-call, invalid-name
 from decimal import Decimal
 import pytest
-from calculator.calculation import Calculation
-from calculator.operations import add, subtract, multiply, divide
+from app.calculation import Calculation
+from app.operations import add, subtract, multiply, divide
 
 # Renamed `a, b, operation, expected` to `a1, b1, op1, exp1` to avoid duplicate parameterization conflicts
 @pytest.mark.parametrize(

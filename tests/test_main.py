@@ -7,8 +7,8 @@ from decimal import Decimal, InvalidOperation
 import pytest
 
 # Application-specific imports
-from calculator.calculation import Calculation
-from calculator.operations import add, subtract, multiply, divide
+from app.calculation import Calculation
+from app.operations import add, subtract, multiply, divide
 
 # Map operation names to actual function references
 operation_map = {
