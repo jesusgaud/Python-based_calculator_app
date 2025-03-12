@@ -1,7 +1,5 @@
-# This workflow installs dependencies, runs tests, and lints the codebase
-# More details: https://docs.github.com/en/actions
-
-name: Python application
+# GitHub Actions for Python CI/CD
+name: Python CI/CD Workflow
 
 on:
   push:
@@ -15,15 +13,19 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]  # Run tests on multiple Python versions
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
 
-      - name: Set up Python 3.10
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
 
       - name: Install dependencies
         run: |
@@ -33,8 +35,8 @@ jobs:
 
       - name: Run Linter (Pylint)
         run: |
-          pylint $(git ls-files '*.py')
+          pylint $(git ls-files '*.py') --fail-under=7.0
 
       - name: Run Tests with Coverage
         run: |
-          pytest --pylint --cov
+          pytest --timeout=60 --cov --cov-report=term-missing --cov-fail-under=90
