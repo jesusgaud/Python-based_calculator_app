@@ -4,7 +4,7 @@ class Command(ABC):
     """Abstract base class for all command implementations."""
 
     @abstractmethod
-    def execute(self):
+    def execute(self, *args):
         """Abstract method that must be implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement the execute method.")
 
@@ -19,9 +19,9 @@ class CommandHandler:
         """Registers a command with a given name."""
         self.commands[command_name] = command
 
-    def execute_command(self, command_name: str):
+    def execute_command(self, command_name: str, *args):
         """
-        Executes a registered command.
+        Executes a registered command with optional arguments.
 
         - **LBYL (Look Before You Leap)**: Checks existence before executing.
         - **EAFP (Easier to Ask for Forgiveness than Permission)**: Uses exception handling.
@@ -29,9 +29,11 @@ class CommandHandler:
         Example:
         ```python
         command_handler.execute_command("greet")
+        command_handler.execute_command("add", "5", "3")  # Example with arguments
         ```
         """
         try:
-            self.commands[command_name].execute()
+            command = self.commands[command_name]
+            command.execute(*args)  # Pass arguments properly
         except KeyError:
-            print(f"No such command: {command_name}")
+            print("Unknown command. Type 'menu' for a list of commands.")

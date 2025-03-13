@@ -34,7 +34,7 @@ def test_command_handler_execute_unknown(capsys):
     handler.execute_command("unknown_command")
     captured = capsys.readouterr()
 
-    assert "No such command: unknown_command" in captured.out
+    assert "Unknown command. Type 'menu' for a list of commands." in captured.out
 
 def test_abstract_command():
     """Ensure `Command` cannot be instantiated directly."""

@@ -6,12 +6,92 @@ import pkgutil
 import importlib
 from dotenv import load_dotenv  # Third-party package
 from app.commands import CommandHandler, Command  # Import the CommandHandler class from the commands module
-from .calculation import Calculation
 from .calculations import Calculations
 from .operations import add, subtract, multiply, divide
 
+# Define Command Classes for Operations
+class AddCommand(Command):
+    """Command to handle addition."""
+    def execute(self, *args):
+        if len(args) != 2:
+            print("Usage: add <num1> <num2>")
+            return
+        try:
+            num1, num2 = map(float, args)
+            result = add(num1, num2)
+            print(f"{num1:g} + {num2:g} = {result:g}")  # Ensure cleaner integer formatting
+        except ValueError:
+            print("Invalid number input. Use numeric values.")
+
+class SubtractCommand(Command):
+    """Command to handle subtraction."""
+    def execute(self, *args):
+        if len(args) != 2:
+            print("Usage: subtract <num1> <num2>")
+            return
+        try:
+            num1, num2 = map(float, args)
+            result = subtract(num1, num2)
+            print(f"{num1:g} - {num2:g} = {result:g}")
+        except ValueError:
+            print("Invalid number input. Use numeric values.")
+
+class MultiplyCommand(Command):
+    """Command to handle multiplication."""
+    def execute(self, *args):
+        if len(args) != 2:
+            print("Usage: multiply <num1> <num2>")
+            return
+        try:
+            num1, num2 = map(float, args)
+            result = multiply(num1, num2)
+            print(f"{num1:g} x {num2:g} = {result:g}")
+        except ValueError:
+            print("Invalid number input. Use numeric values.")
+
+class DivideCommand(Command):
+    """Command to handle division."""
+    def execute(self, *args):
+        if len(args) != 2:
+            print("Usage: divide <num1> <num2>")
+            return
+        try:
+            num1, num2 = map(float, args)
+            if num2 == 0:
+                print("Error: Cannot divide by zero.")
+                return
+            result = divide(num1, num2)
+            print(f"{num1:g} / {num2:g} = {result:g}")
+        except ValueError:
+            print("Invalid number input. Use numeric values.")
+
+# Define Command Classes for Menu & History
+class MenuCommand(Command):
+    """Command to display all available commands."""
+    def execute(self):
+        print("\nAvailable Commands:")
+        for command in App.command_handler.commands.keys():
+            print(f"- {command}")
+        print("Type 'exit' to quit.")
+
+class HistoryCommand(Command):
+    """Command to display calculation history."""
+    def execute(self):
+        try:
+            history = Calculations.get_history()
+            if not history:
+                print("No calculation history available.")
+                return
+            print("\nCalculation History:")
+            for record in history:
+                print(record)
+        except Exception as e:
+            logging.error("Error retrieving history: %s", str(e))
+
 class App:
     """Main application class that loads environment variables, plugins, and executes commands."""
+
+    command_handler = CommandHandler()  # Global Command Handler
 
     def __init__(self):
         """Initialize the application, configure logging, and load settings."""
@@ -23,7 +103,16 @@ class App:
         self.settings.setdefault('ENVIRONMENT', 'PRODUCTION')
 
         self.ENVIRONMENT = self.settings.get("ENVIRONMENT", "PRODUCTION")
-        self.command_handler = CommandHandler()
+
+        # Register core calculator operations
+        App.command_handler.register_command("add", AddCommand())
+        App.command_handler.register_command("subtract", SubtractCommand())
+        App.command_handler.register_command("multiply", MultiplyCommand())
+        App.command_handler.register_command("divide", DivideCommand())
+
+        # Register new history and menu commands
+        App.command_handler.register_command("history", HistoryCommand())
+        App.command_handler.register_command("menu", MenuCommand())
 
         logging.info("Running in %s mode", self.ENVIRONMENT)
 
@@ -69,6 +158,8 @@ class App:
 
         if not registered:
             logging.warning("No valid commands found in plugin: %s", plugin_name)
+            if plugin_name in self.command_handler.commands:
+                del self.command_handler.commands[plugin_name]  # Remove invalid plugin command
 
     def start(self):
         """Start the interactive command loop (REPL mode)."""
@@ -77,15 +168,21 @@ class App:
 
         try:
             while True:
-                cmd_input = input(">>> ").strip()
-                if cmd_input.lower() == 'exit':
+                cmd_input = input(">>> ").strip().split()
+                if not cmd_input:
+                    continue
+                command = cmd_input[0]
+                args = cmd_input[1:]
+
+                if command.lower() == 'exit':
                     logging.info("Application exit.")
                     sys.exit(0)
 
                 try:
-                    self.command_handler.execute_command(cmd_input)
+                    App.command_handler.execute_command(command, *args)
                 except KeyError:
-                    logging.error("Unknown command: %s", cmd_input)
+                    logging.error("Unknown command: %s", command)
+                    print("Unknown command. Type 'menu' for a list of commands.")
         except KeyboardInterrupt:
             logging.info("Application interrupted. Exiting gracefully.")
             sys.exit(0)

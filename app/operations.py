@@ -19,27 +19,32 @@ class AddOperation:
     """Command for addition."""
     @staticmethod
     def execute(a: Decimal, b: Decimal) -> Decimal:
-        return a + b
+        result = a + b
+        return int(result) if result == int(result) else result  # Remove unnecessary decimals
 
 class SubtractOperation:
     """Command for subtraction."""
     @staticmethod
     def execute(a: Decimal, b: Decimal) -> Decimal:
-        return a - b
+        result = a - b
+        return int(result) if result == int(result) else result
 
 class MultiplyOperation:
     """Command for multiplication."""
     @staticmethod
     def execute(a: Decimal, b: Decimal) -> Decimal:
-        return a * b
+        result = a * b
+        return int(result) if result == int(result) else result
 
 class DivideOperation:
     """Command for division."""
     @staticmethod
     def execute(a: Decimal, b: Decimal) -> Decimal:
         if b == 0:
+            logging.error("Attempted to divide by zero.")
             raise ZeroDivisionError("Cannot divide by zero")
-        return a / b
+        result = a / b
+        return int(result) if result == int(result) else result
 
 # Function-based operations (for compatibility)
 def add(a: Decimal, b: Decimal) -> Decimal:
