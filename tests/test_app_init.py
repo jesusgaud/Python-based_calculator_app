@@ -88,8 +88,8 @@ def test_start_method_unknown_command(app_instance, monkeypatch, caplog):
     print(f"\nCaptured Output:\n{output_text}")
 
     # Check for expected message
-    assert "No such command: unknown_command" in output_text, \
-        f"Expected 'No such command: unknown_command' in output, but got:\n{output_text}"
+    assert "Unknown command. Type 'menu' for a list of commands." in output_text, \
+        f"Expected 'Unknown command' message, but got:\n{output_text}"
 
 def test_start_keyboard_interrupt(app_instance, monkeypatch, caplog):
     """Test handling of KeyboardInterrupt in the REPL."""
@@ -116,3 +116,51 @@ def test_main_execution():
             app = App()  # Directly create an instance instead of importing from __main__
             app.start()
             mock_start.assert_called_once()
+
+# ✅ NEW TESTS ADDED BELOW ✅
+
+def test_menu_command(app_instance, monkeypatch, capsys):
+    """Test that the 'menu' command lists all available commands."""
+    inputs = iter(["menu", "exit"])
+    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+
+    with pytest.raises(SystemExit):
+        app_instance.start()
+
+    captured = capsys.readouterr()
+    assert "Available Commands:" in captured.out
+    assert "add" in captured.out
+    assert "subtract" in captured.out
+    assert "multiply" in captured.out
+    assert "divide" in captured.out
+    assert "history" in captured.out
+    assert "menu" in captured.out
+
+def test_history_command(app_instance, monkeypatch, capsys):
+    """Test that the 'history' command retrieves calculation history."""
+    inputs = iter(["history", "exit"])
+    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+
+    with patch("app.Calculations.get_history", return_value=["1 + 1 = 2"]):
+        with pytest.raises(SystemExit):
+            app_instance.start()
+
+    captured = capsys.readouterr()
+    assert "Calculation History:" in captured.out
+    assert "1 + 1 = 2" in captured.out
+
+def test_basic_operations(app_instance, monkeypatch, capsys):
+    """Test that basic operations (add, subtract, multiply, divide) work in the REPL."""
+    inputs = iter(["add 5 3", "subtract 8 2", "multiply 4 3", "divide 10 2", "exit"])
+    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+
+    with patch("app.Calculations.get_history", return_value=["5 + 3 = 8", "8 - 2 = 6", "4 * 3 = 12", "10 / 2 = 5"]):
+        with pytest.raises(SystemExit):
+            app_instance.start()
+
+    captured = capsys.readouterr()
+    assert "5 + 3 = 8" in captured.out
+    assert "8 - 2 = 6" in captured.out
+    assert "4 x 3 = 12" in captured.out
+    assert "10 / 2 = 5" in captured.out
+
