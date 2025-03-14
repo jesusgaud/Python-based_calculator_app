@@ -8,7 +8,9 @@ extension-pkg-whitelist=pydantic
 [MESSAGES CONTROL]
 # Only show these errors
 # Disable the following checks (example list):
-disable= missing-docstring, invalid-name, unnecessary-dunder-call # disables warnings for missing docstrings, unnecessary dunder calls, and invalid names
+disable= missing-docstring, invalid-name, unnecessary-dunder-call, abstract-class-instantiated, too-few-public-methods
+# disables warnings for missing docstrings, unnecessary dunder calls, and invalid names
+# disables warnings for abstract class instantiation and too few public methods
 
 [REPORTS]
 # Set the output format. Available formats: text, parseable, colorized, json, msvs (visual studio) and html

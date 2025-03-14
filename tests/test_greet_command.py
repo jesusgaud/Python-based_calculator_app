@@ -1,3 +1,4 @@
+# pylint: disable=redefined-outer-name
 import pytest
 from app.plugins.greet.greet import GreetCommand
 
