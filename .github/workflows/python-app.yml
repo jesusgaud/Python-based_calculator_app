@@ -41,10 +41,17 @@ jobs:
           pip install flake8 pytest pylint pytest-cov pytest-xdist pytest-timeout
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
+      - name: Install Project
+        run: pip install -e .
+
+      - name: Debug - List all files
+        run: ls -R
+
       - name: Run Linter (Pylint)
         run: |
-          git diff --name-only origin/main | grep '\.py$' | xargs pylint --exit-zero || echo "No Python files changed"
+          CHANGED_FILES=$(git diff --name-only origin/main | grep '\.py$' || echo "")
+          if [ -n "$CHANGED_FILES" ]; then pylint $CHANGED_FILES --exit-zero; else echo "No Python files changed"; fi
 
       - name: Run Tests with Coverage (Parallel Execution)
         run: |
-          pytest --cov=. --cov-report=term-missing --cov-fail-under=90 -n auto
+          pytest tests --cov=app --cov-branch --cov-report=xml --cov-report=term-missing --cov-fail-under=90 -n auto
