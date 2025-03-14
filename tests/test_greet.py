@@ -1,6 +1,7 @@
-import pytest
+# pylint: disable=redefined-outer-name
 import logging
-from unittest.mock import patch
+#from unittest.mock import patch
+import pytest
 from app.plugins.greet import GreetCommand
 
 @pytest.fixture

@@ -1,10 +1,11 @@
-import pytest
 from unittest.mock import MagicMock
+import pytest
 from app.commands import CommandHandler, Command
 
 class MockCommand(Command):
     """Mock command implementing the execute method."""
-    def execute(self):
+    def execute(self, *args, **kwargs):
+        _ = kwargs
         return "Mock Execution"
 
 def test_command_handler_register():
@@ -38,5 +39,18 @@ def test_command_handler_execute_unknown(capsys):
 
 def test_abstract_command():
     """Ensure `Command` cannot be instantiated directly."""
+
+    assert hasattr(Command, "__abstractmethods__")
+    assert "execute" in Command.__abstractmethods__
+
+    class InvalidCommand(Command):
+        """A subclass that does not override `execute` properly."""
+        def execute(self, *args, **kwargs):
+            """Ensure execute is implemented but raises NotImplementedError."""
+            raise NotImplementedError("This is an abstract method.")
+
     with pytest.raises(TypeError):
         Command()
+
+    with pytest.raises(NotImplementedError):
+        InvalidCommand().execute()

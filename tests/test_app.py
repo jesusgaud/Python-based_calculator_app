@@ -1,5 +1,5 @@
-import pytest
-import os
+# import pytest
+# import os
 from app.app import App
 
 def test_get_environment_variable(monkeypatch):
