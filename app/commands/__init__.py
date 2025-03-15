@@ -14,6 +14,7 @@ class CommandHandler:
     def __init__(self):
         """Initializes an empty dictionary to store commands."""
         self.commands = {}
+        self.register_command("menu", MenuCommand(self))  # ✅ Register menu command on initialization
 
     def register_command(self, command_name: str, command: Command):
         """Registers a command with a given name."""
@@ -37,3 +38,17 @@ class CommandHandler:
             command.execute(*args)  # Pass arguments properly
         except KeyError:
             print("Unknown command. Type 'menu' for a list of commands.")
+
+class MenuCommand(Command):
+    """Command that lists all available commands."""
+
+    def __init__(self, command_handler: CommandHandler):
+        """Receives a reference to the command handler to list available commands."""
+        self.command_handler = command_handler
+
+    def execute(self, *args):
+        """Displays all registered commands."""
+        print("\nAvailable Commands:")
+        for command in self.command_handler.commands.keys():
+            print(f"- {command}")
+        print("Type 'exit' to quit.")

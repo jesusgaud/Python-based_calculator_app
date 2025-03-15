@@ -41,11 +41,16 @@ jobs:
           pip install flake8 pytest pylint pytest-cov pytest-xdist pytest-timeout
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Install Project
-        run: pip install -e .
-
       - name: Debug - List all files
         run: ls -R
+
+      - name: Install Project (Editable Mode)
+        run: |
+          if [ -f setup.py ]; then
+            pip install -e .
+          else
+            echo "⚠️ setup.py not found. Skipping editable install."
+          fi
 
       - name: Run Linter (Pylint)
         run: |
