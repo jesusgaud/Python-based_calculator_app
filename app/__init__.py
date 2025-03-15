@@ -6,15 +6,13 @@ import pkgutil
 import importlib
 from dotenv import load_dotenv  # Third-party package
 from app.commands import CommandHandler, Command  # Import CommandHandler
-from app.plugins import load_plugins    # Import load_plugins
+from app.plugins import load_plugins  # Import load_plugins
 from app.plugins.modulus import ModulusCommand
 from app.plugins.power import PowerCommand
 from app.plugins.greet import GreetCommand
 from .calculations import Calculations
 from .operations import add, subtract, multiply, divide
 
-
-# Define Command Classes for Operations
 class AddCommand(Command):
     """Command to handle addition."""
     def execute(self, *args):
@@ -24,10 +22,9 @@ class AddCommand(Command):
         try:
             num1, num2 = map(float, args)
             result = add(num1, num2)
-            print(f"{num1:g} + {num2:g} = {result:g}")  # Cleaner formatting
+            print(f"{num1:g} + {num2:g} = {result:g}")
         except ValueError:
             print("Invalid number input. Use numeric values.")
-
 
 class SubtractCommand(Command):
     """Command to handle subtraction."""
@@ -42,7 +39,6 @@ class SubtractCommand(Command):
         except ValueError:
             print("Invalid number input. Use numeric values.")
 
-
 class MultiplyCommand(Command):
     """Command to handle multiplication."""
     def execute(self, *args):
@@ -55,7 +51,6 @@ class MultiplyCommand(Command):
             print(f"{num1:g} x {num2:g} = {result:g}")
         except ValueError:
             print("Invalid number input. Use numeric values.")
-
 
 class DivideCommand(Command):
     """Command to handle division."""
@@ -73,7 +68,6 @@ class DivideCommand(Command):
         except ValueError:
             print("Invalid number input. Use numeric values.")
 
-
 class HistoryCommand(Command):
     """Command to display calculation history."""
     def execute(self):
@@ -87,6 +81,15 @@ class HistoryCommand(Command):
                 print(record)
         except Exception as e:
             logging.error("Error retrieving history: %s", str(e))
+
+class GreetCommand(Command):
+    """Command for greeting a user."""
+    def execute(self, *args):
+        if not args:
+            print("Usage: greet <name>")
+            return
+        name = " ".join(args)  # Allow multiple words as name
+        print(f"Hello, {name}! Welcome to the calculator.")
 
 class App:
     """Main application class that loads environment variables, plugins, and executes commands."""
@@ -111,6 +114,7 @@ class App:
         App.command_handler.register_command("multiply", MultiplyCommand())
         App.command_handler.register_command("divide", DivideCommand())
         App.command_handler.register_command("history", HistoryCommand())
+        App.command_handler.register_command("menu", MenuCommand(App.command_handler))
 
         if "modulus" in App.command_handler.commands:
             App.command_handler.register_command("modulus", ModulusCommand())
@@ -120,8 +124,6 @@ class App:
 
         if "greet" in App.command_handler.commands:
             App.command_handler.register_command("greet", GreetCommand())
-
-        App.command_handler.register_command("menu", MenuCommand(App.command_handler))
 
         logging.info("Running in %s mode", self.ENVIRONMENT)
 
@@ -200,7 +202,6 @@ class App:
         finally:
             logging.info("Application shutdown.")
 
-
 class MenuCommand(Command):
     """Command to display all available commands."""
 
@@ -214,7 +215,6 @@ class MenuCommand(Command):
         for command in self.command_handler.commands.keys():
             print(f"- {command}")
         print("Type 'exit' to quit.")
-
 
 if __name__ == "__main__":
     app = App()

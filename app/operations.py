@@ -3,7 +3,7 @@ import os
 import sys
 import logging
 from decimal import Decimal
-from typing import Protocol, Dict, Callable
+from typing import Protocol, Dict, Callable, Union
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 # Define a protocol (interface) for mathematical operations
 class Operation(Protocol):
     """Defines the interface for all mathematical operations."""
-    def execute(self, a: Decimal, b: Decimal) -> Decimal:
+    def execute(self, a: Decimal, b: Decimal) -> Union[Decimal, str]:
         """Executes the operation on two operands."""
 
 # Implementations for basic operations using the Command Pattern
@@ -20,7 +20,7 @@ class AddOperation:
     @staticmethod
     def execute(a: Decimal, b: Decimal) -> Decimal:
         result = a + b
-        return int(result) if result == int(result) else result  # Remove unnecessary decimals
+        return int(result) if result == int(result) else result
 
 class SubtractOperation:
     """Command for subtraction."""
@@ -63,39 +63,37 @@ class PowerOperation:
         result = a ** b
         return int(result) if result == int(result) else result
 
+def greet(name: str = "User") -> str:
+    """Returns a greeting message."""
+    return f"Hello, {name}! Welcome to the calculator."
+
 # Function-based operations (for compatibility)
 def add(a: Decimal, b: Decimal) -> Decimal:
-    """Performs addition"""
     return AddOperation.execute(a, b)
 
 def subtract(a: Decimal, b: Decimal) -> Decimal:
-    """Performs subtraction"""
     return SubtractOperation.execute(a, b)
 
 def multiply(a: Decimal, b: Decimal) -> Decimal:
-    """Performs multiplication"""
     return MultiplyOperation.execute(a, b)
 
 def divide(a: Decimal, b: Decimal) -> Decimal:
-    """Performs division"""
     return DivideOperation.execute(a, b)
 
 def modulus(a: Decimal, b: Decimal) -> Decimal:
-    """Performs modulus (remainder)"""
     return ModulusOperation.execute(a, b)
 
 def power(a: Decimal, b: Decimal) -> Decimal:
-    """Performs exponentiation (power)"""
     return PowerOperation.execute(a, b)
 
-# Dictionary to store all operations (built-in + plugins)
-operations: Dict[str, Callable[[Decimal, Decimal], Decimal]] = {
+operations: Dict[str, Callable[..., Union[Decimal, str]]] = {
     "add": add,
     "subtract": subtract,
     "multiply": multiply,
     "divide": divide,
     "modulus": modulus,
     "power": power,
+    "greet": greet,
 }
 
 # Dynamically load plugins
@@ -119,5 +117,4 @@ def load_plugins():
             except ImportError as e:
                 logging.error("Failed to load plugin %s: %s", module_name, str(e))
 
-# Load plugins at startup
 load_plugins()

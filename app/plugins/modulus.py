@@ -1,3 +1,4 @@
+from decimal import Decimal
 from app.commands import Command
 from app.operations import modulus
 
@@ -13,3 +14,7 @@ class ModulusCommand(Command):
             print(f"{num1} % {num2} = {modulus(num1, num2)}")  # ✅ Uses the function
         except ValueError:
             print("Invalid input. Use numeric values.")
+
+def operation(a: Decimal, b: Decimal) -> Decimal:
+    """Perform modulus operation."""
+    return a % b  # Ensures compatibility with tests

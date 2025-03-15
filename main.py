@@ -84,12 +84,25 @@ def interactive_mode():
             continue
 
         parts = user_input.split()
+
+        non_math_commands = {"greet", "menu", "history"}
+        if parts[0] in non_math_commands:
+            if parts[0] == "greet":
+                name = " ".join(parts[1:]) if len(parts) > 1 else "Stranger"
+                print(f"Hello, {name}! Welcome to the calculator.")
+            elif parts[0] == "menu":
+                print("\nAvailable commands:", ", ".join(commands.keys()))
+            elif parts[0] == "history":
+                print("Displaying history... (Feature to be implemented)")
+            continue
+
         if len(parts) != 3:
             print("Invalid input. Use format: <number1> <number2> <operation>")
             continue
 
         a, b, operation = parts
         execute_command(a, b, operation)
+
 
 def main():
     """Runs either interactive mode or command-line mode based on user input."""
