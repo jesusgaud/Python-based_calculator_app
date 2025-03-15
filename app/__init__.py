@@ -5,9 +5,10 @@ import logging.config
 import pkgutil
 import importlib
 from dotenv import load_dotenv  # Third-party package
-from app.commands import CommandHandler, Command  # Import the CommandHandler class from the commands module
+from app.commands import CommandHandler, Command  # Import CommandHandler
 from .calculations import Calculations
 from .operations import add, subtract, multiply, divide
+
 
 # Define Command Classes for Operations
 class AddCommand(Command):
@@ -19,9 +20,10 @@ class AddCommand(Command):
         try:
             num1, num2 = map(float, args)
             result = add(num1, num2)
-            print(f"{num1:g} + {num2:g} = {result:g}")  # Ensure cleaner integer formatting
+            print(f"{num1:g} + {num2:g} = {result:g}")  # Cleaner formatting
         except ValueError:
             print("Invalid number input. Use numeric values.")
+
 
 class SubtractCommand(Command):
     """Command to handle subtraction."""
@@ -36,6 +38,7 @@ class SubtractCommand(Command):
         except ValueError:
             print("Invalid number input. Use numeric values.")
 
+
 class MultiplyCommand(Command):
     """Command to handle multiplication."""
     def execute(self, *args):
@@ -48,6 +51,7 @@ class MultiplyCommand(Command):
             print(f"{num1:g} x {num2:g} = {result:g}")
         except ValueError:
             print("Invalid number input. Use numeric values.")
+
 
 class DivideCommand(Command):
     """Command to handle division."""
@@ -65,14 +69,6 @@ class DivideCommand(Command):
         except ValueError:
             print("Invalid number input. Use numeric values.")
 
-# Define Command Classes for Menu & History
-class MenuCommand(Command):
-    """Command to display all available commands."""
-    def execute(self):
-        print("\nAvailable Commands:")
-        for command in App.command_handler.commands.keys():
-            print(f"- {command}")
-        print("Type 'exit' to quit.")
 
 class HistoryCommand(Command):
     """Command to display calculation history."""
@@ -88,10 +84,11 @@ class HistoryCommand(Command):
         except Exception as e:
             logging.error("Error retrieving history: %s", str(e))
 
+
 class App:
     """Main application class that loads environment variables, plugins, and executes commands."""
 
-    command_handler = CommandHandler()  # Global Command Handler
+    command_handler = CommandHandler()  # ✅ Global Command Handler
 
     def __init__(self):
         """Initialize the application, configure logging, and load settings."""
@@ -104,15 +101,15 @@ class App:
 
         self.ENVIRONMENT = self.settings.get("ENVIRONMENT", "PRODUCTION")
 
-        # Register core calculator operations
+        # ✅ Register core calculator operations
         App.command_handler.register_command("add", AddCommand())
         App.command_handler.register_command("subtract", SubtractCommand())
         App.command_handler.register_command("multiply", MultiplyCommand())
         App.command_handler.register_command("divide", DivideCommand())
-
-        # Register new history and menu commands
         App.command_handler.register_command("history", HistoryCommand())
-        App.command_handler.register_command("menu", MenuCommand())
+
+        # ✅ Register menu command with reference to global command handler
+        App.command_handler.register_command("menu", MenuCommand(App.command_handler))
 
         logging.info("Running in %s mode", self.ENVIRONMENT)
 
@@ -188,6 +185,22 @@ class App:
             sys.exit(0)
         finally:
             logging.info("Application shutdown.")
+
+
+class MenuCommand(Command):
+    """Command to display all available commands."""
+
+    def __init__(self, command_handler):
+        """Receives a reference to the command handler to list available commands."""
+        self.command_handler = command_handler
+
+    def execute(self, *args):
+        """Displays all registered commands."""
+        print("\nAvailable Commands:")
+        for command in self.command_handler.commands.keys():
+            print(f"- {command}")
+        print("Type 'exit' to quit.")
+
 
 if __name__ == "__main__":
     app = App()
