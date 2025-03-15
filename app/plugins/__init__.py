@@ -18,13 +18,12 @@ def load_plugins(command_handler: CommandHandler):
             except ImportError as e:
                 logging.error(f"Failed to load plugin {module_name}: {e}")
 
-def register_plugin_commands(plugin_module, command_handler: CommandHandler):
+def register_plugin_commands(plugin_module, command_handler):
     """Registers commands found in the plugin module."""
     registered = False
     for attr_name in dir(plugin_module):
         attr = getattr(plugin_module, attr_name)
         if isinstance(attr, type) and issubclass(attr, Command) and attr is not Command:
-            command_name = plugin_module.__name__.split('.')[-1]
             command_handler.register_command(attr_name.lower(), attr())
             logging.info(f"Registered plugin command: {attr_name.lower()}")
             registered = True

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from app.commands import Command
 from app.operations import power
 
@@ -13,3 +14,7 @@ class PowerCommand(Command):
             print(f"{base} ^ {exponent} = {base ** exponent}")
         except ValueError:
             print("Invalid input. Use numeric values.")
+
+def operation(a: Decimal, b: Decimal) -> Decimal:
+    """Perform exponentiation."""
+    return a ** b  # Ensures compatibility with tests
