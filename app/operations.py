@@ -46,6 +46,23 @@ class DivideOperation:
         result = a / b
         return int(result) if result == int(result) else result
 
+class ModulusOperation:
+    """Command for modulus (remainder)."""
+    @staticmethod
+    def execute(a: Decimal, b: Decimal) -> Decimal:
+        if b == 0:
+            logging.error("Attempted to calculate modulus by zero.")
+            raise ZeroDivisionError("Cannot calculate modulus by zero")
+        result = a % b
+        return int(result) if result == int(result) else result
+
+class PowerOperation:
+    """Command for exponentiation (power)."""
+    @staticmethod
+    def execute(a: Decimal, b: Decimal) -> Decimal:
+        result = a ** b
+        return int(result) if result == int(result) else result
+
 # Function-based operations (for compatibility)
 def add(a: Decimal, b: Decimal) -> Decimal:
     """Performs addition"""
@@ -63,12 +80,22 @@ def divide(a: Decimal, b: Decimal) -> Decimal:
     """Performs division"""
     return DivideOperation.execute(a, b)
 
+def modulus(a: Decimal, b: Decimal) -> Decimal:
+    """Performs modulus (remainder)"""
+    return ModulusOperation.execute(a, b)
+
+def power(a: Decimal, b: Decimal) -> Decimal:
+    """Performs exponentiation (power)"""
+    return PowerOperation.execute(a, b)
+
 # Dictionary to store all operations (built-in + plugins)
 operations: Dict[str, Callable[[Decimal, Decimal], Decimal]] = {
     "add": add,
     "subtract": subtract,
     "multiply": multiply,
     "divide": divide,
+    "modulus": modulus,
+    "power": power,
 }
 
 # Dynamically load plugins

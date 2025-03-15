@@ -6,6 +6,10 @@ import pkgutil
 import importlib
 from dotenv import load_dotenv  # Third-party package
 from app.commands import CommandHandler, Command  # Import CommandHandler
+from app.plugins import load_plugins    # Import load_plugins
+from app.plugins.modulus import ModulusCommand
+from app.plugins.power import PowerCommand
+from app.plugins.greet import GreetCommand
 from .calculations import Calculations
 from .operations import add, subtract, multiply, divide
 
@@ -84,7 +88,6 @@ class HistoryCommand(Command):
         except Exception as e:
             logging.error("Error retrieving history: %s", str(e))
 
-
 class App:
     """Main application class that loads environment variables, plugins, and executes commands."""
 
@@ -101,14 +104,23 @@ class App:
 
         self.ENVIRONMENT = self.settings.get("ENVIRONMENT", "PRODUCTION")
 
-        # ✅ Register core calculator operations
+        load_plugins(App.command_handler)
+
         App.command_handler.register_command("add", AddCommand())
         App.command_handler.register_command("subtract", SubtractCommand())
         App.command_handler.register_command("multiply", MultiplyCommand())
         App.command_handler.register_command("divide", DivideCommand())
         App.command_handler.register_command("history", HistoryCommand())
 
-        # ✅ Register menu command with reference to global command handler
+        if "modulus" in App.command_handler.commands:
+            App.command_handler.register_command("modulus", ModulusCommand())
+
+        if "power" in App.command_handler.commands:
+            App.command_handler.register_command("power", PowerCommand())
+
+        if "greet" in App.command_handler.commands:
+            App.command_handler.register_command("greet", GreetCommand())
+
         App.command_handler.register_command("menu", MenuCommand(App.command_handler))
 
         logging.info("Running in %s mode", self.ENVIRONMENT)
@@ -139,9 +151,10 @@ class App:
                 try:
                     plugin_module = importlib.import_module(f'{plugins_package}.{plugin_name}')
                     self.register_plugin_commands(plugin_module, plugin_name)
-                    logging.info("Loaded plugin: %s", plugin_name)
+                    logging.info(f"Loaded plugin: {plugin_name}")
                 except ImportError as e:
-                    logging.error("Failed to load plugin %s: %s", plugin_name, e)
+                    logging.error(f"Failed to load plugin {plugin_name}: {e}")
+        print("Registered Commands:", list(self.command_handler.commands.keys()))
 
     def register_plugin_commands(self, plugin_module, plugin_name):
         """Register commands from dynamically loaded plugins."""
@@ -150,11 +163,12 @@ class App:
             item = getattr(plugin_module, item_name)
             if isinstance(item, type) and issubclass(item, Command) and item is not Command:
                 self.command_handler.register_command(plugin_name, item())
-                logging.info("Registered command from plugin: %s", plugin_name)
+                logging.info(f"Registered command from plugin: {plugin_name}")
+                print(f"Registered Plugin: {plugin_name}")
                 registered = True
 
         if not registered:
-            logging.warning("No valid commands found in plugin: %s", plugin_name)
+            logging.warning(f"No valid commands found in plugin: {plugin_name}")
             if plugin_name in self.command_handler.commands:
                 del self.command_handler.commands[plugin_name]  # Remove invalid plugin command
 
