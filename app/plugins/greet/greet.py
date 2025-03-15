@@ -1,3 +1,5 @@
+from app.commands import Command
+
 class GreetCommand:
     """Command that returns a greeting message."""
 

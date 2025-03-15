@@ -14,7 +14,7 @@ class CommandHandler:
     def __init__(self):
         """Initializes an empty dictionary to store commands."""
         self.commands = {}
-        self.register_command("menu", MenuCommand(self))  # ✅ Register menu command on initialization
+        self.register_command("menu", MenuCommand(self))
 
     def register_command(self, command_name: str, command: Command):
         """Registers a command with a given name."""
