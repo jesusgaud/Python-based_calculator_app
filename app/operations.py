@@ -1,120 +1,110 @@
-import importlib
 import os
+import importlib
 import sys
 import logging
 from decimal import Decimal
-from typing import Protocol, Dict, Callable, Union
+from typing import Dict, Callable, Union, Optional
+from app.math_operations import add, subtract, multiply, divide  # ✅ Fixed imports
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# Define a protocol (interface) for mathematical operations
-class Operation(Protocol):
-    """Defines the interface for all mathematical operations."""
-    def execute(self, a: Decimal, b: Decimal) -> Union[Decimal, str]:
-        """Executes the operation on two operands."""
+def get_calculation_class():
+    """Avoid circular imports by loading Calculation inside the function."""
+    from app.calculations_global import Calculation
+    return Calculation
 
-# Implementations for basic operations using the Command Pattern
+def get_history_manager():
+    """Avoid circular imports by loading Calculations inside the function."""
+    from app.calculations_global import Calculations
+    return Calculations()
+
 class AddOperation:
     """Command for addition."""
     @staticmethod
     def execute(a: Decimal, b: Decimal) -> Decimal:
-        result = a + b
-        return int(result) if result == int(result) else result
+        result = add(a, b)
+        Calculation = get_calculation_class()
+        history_manager = get_history_manager()
+        history_manager.add_calculation(Calculation(a, b, "add", result))
+        return result
 
 class SubtractOperation:
     """Command for subtraction."""
     @staticmethod
     def execute(a: Decimal, b: Decimal) -> Decimal:
-        result = a - b
-        return int(result) if result == int(result) else result
+        result = subtract(a, b)
+        Calculation = get_calculation_class()
+        history_manager = get_history_manager()
+        history_manager.add_calculation(Calculation(a, b, "subtract", result))
+        return result
 
 class MultiplyOperation:
     """Command for multiplication."""
     @staticmethod
     def execute(a: Decimal, b: Decimal) -> Decimal:
-        result = a * b
-        return int(result) if result == int(result) else result
+        result = multiply(a, b)
+        Calculation = get_calculation_class()
+        history_manager = get_history_manager()
+        history_manager.add_calculation(Calculation(a, b, "multiply", result))
+        return result
 
 class DivideOperation:
     """Command for division."""
     @staticmethod
     def execute(a: Decimal, b: Decimal) -> Decimal:
         if b == 0:
-            logging.error("Attempted to divide by zero.")
             raise ZeroDivisionError("Cannot divide by zero")
-        result = a / b
-        return int(result) if result == int(result) else result
+        result = divide(a, b)
+        Calculation = get_calculation_class()
+        history_manager = get_history_manager()
+        history_manager.add_calculation(Calculation(a, b, "divide", result))
+        return result
 
-class ModulusOperation:
-    """Command for modulus (remainder)."""
-    @staticmethod
-    def execute(a: Decimal, b: Decimal) -> Decimal:
-        if b == 0:
-            logging.error("Attempted to calculate modulus by zero.")
-            raise ZeroDivisionError("Cannot calculate modulus by zero")
-        result = a % b
-        return int(result) if result == int(result) else result
-
-class PowerOperation:
-    """Command for exponentiation (power)."""
-    @staticmethod
-    def execute(a: Decimal, b: Decimal) -> Decimal:
-        result = a ** b
-        return int(result) if result == int(result) else result
-
-def greet(name: str = "User") -> str:
-    """Returns a greeting message."""
-    return f"Hello, {name}! Welcome to the calculator."
-
-# Function-based operations (for compatibility)
-def add(a: Decimal, b: Decimal) -> Decimal:
-    return AddOperation.execute(a, b)
-
-def subtract(a: Decimal, b: Decimal) -> Decimal:
-    return SubtractOperation.execute(a, b)
-
-def multiply(a: Decimal, b: Decimal) -> Decimal:
-    return MultiplyOperation.execute(a, b)
-
-def divide(a: Decimal, b: Decimal) -> Decimal:
-    return DivideOperation.execute(a, b)
-
-def modulus(a: Decimal, b: Decimal) -> Decimal:
-    return ModulusOperation.execute(a, b)
-
-def power(a: Decimal, b: Decimal) -> Decimal:
-    return PowerOperation.execute(a, b)
-
+# Mapping basic operations to their command execution methods.
 operations: Dict[str, Callable[..., Union[Decimal, str]]] = {
-    "add": add,
-    "subtract": subtract,
-    "multiply": multiply,
-    "divide": divide,
-    "modulus": modulus,
-    "power": power,
-    "greet": greet,
+    "add": AddOperation.execute,
+    "subtract": SubtractOperation.execute,
+    "multiply": MultiplyOperation.execute,
+    "divide": DivideOperation.execute,
 }
 
-# Dynamically load plugins
+def execute_operation(a: Decimal, b: Decimal, operation: str, history_manager: Optional["HistoryInterface"] = None) -> Decimal:
+    """Executes an operation and returns the result.
+
+    Note: The command classes already add the calculation to history.
+    """
+    if operation not in operations:
+        raise ValueError(f"Unknown operation: {operation}")
+
+    result = operations[operation](a, b)
+    return result
+
+# Dynamically load operation plugins.
 PLUGIN_DIR = os.path.join(os.path.dirname(__file__), "plugins")
 
 def load_plugins():
     """Dynamically loads all operation plugins from the plugins directory."""
-    if not os.path.exists(PLUGIN_DIR):
-        os.makedirs(PLUGIN_DIR)  # Ensure the plugins directory exists
+    global operations
 
-    sys.path.insert(0, PLUGIN_DIR)  # Add plugins directory to Python path
+    if not os.path.exists(PLUGIN_DIR):
+        os.makedirs(PLUGIN_DIR)
+
+    sys.path.insert(0, PLUGIN_DIR)
+
+    from app.math_operations import modulus, power
+    operations["modulus"] = modulus
+    operations["power"] = power
 
     for filename in os.listdir(PLUGIN_DIR):
         if filename.endswith(".py") and filename != "__init__.py":
-            module_name = filename[:-3]  # Remove ".py" to get module name
+            module_name = filename[:-3]
             try:
                 module = importlib.import_module(f"app.plugins.{module_name}")
                 if hasattr(module, "operation"):
-                    operations[module_name] = module.operation  # Register the plugin
-                    logging.info("Loaded plugin: %s", module_name)
+                    operations[module_name] = module.operation
+                    logging.info(f"Loaded plugin: {module_name}")
             except ImportError as e:
-                logging.error("Failed to load plugin %s: %s", module_name, str(e))
+                logging.error(f"Failed to load plugin {module_name}: {e}")
 
 load_plugins()

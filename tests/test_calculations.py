@@ -1,61 +1,57 @@
-"""My Calculator Test"""
-
-# Standard library imports
 from decimal import Decimal
+import os
 import pytest
 
-# Application-specific imports
-from app.calculation import Calculation
-from app.calculations import Calculations
-from app.operations import add, subtract
+from app.core.calculation import Calculation
+from app.calculations_global import Calculations
 
-@pytest.fixture(name="setup_calculations")
-def fixture_setup_calculations():
-    """Fixture to clear history and add sample calculations for tests."""
-    Calculations.clear_history()
-    Calculations.add_calculation(Calculation(Decimal('10'), Decimal('5'), add))
-    Calculations.add_calculation(Calculation(Decimal('20'), Decimal('3'), subtract))
+HISTORY_FILE = "history.csv"
 
-def test_add_calculation(setup_calculations):
-    """Test adding a calculation to the history."""
-    _ = setup_calculations  # Explicitly reference fixture to avoid pylint warnings
-    calc = Calculation(Decimal('2'), Decimal('2'), add)
-    Calculations.add_calculation(calc)
-    assert Calculations.get_latest() == calc, "Failed to add the calculation to the history"
+@pytest.fixture(autouse=True)
+def clear_history():
+    """Ensure history is cleared before and after tests."""
+    history_manager = Calculations()
+    history_manager.clear_history()
+    yield
+    if os.path.exists(HISTORY_FILE):
+        os.remove(HISTORY_FILE)
 
-def test_get_history(setup_calculations):
-    """Test retrieving the entire calculation history."""
-    _ = setup_calculations  # Explicitly reference fixture
-    history = Calculations.get_history()
-    assert len(history) == 2, "History does not contain the expected number of calculations"
+def test_create_calculation():
+    """Test creation of Calculation instance."""
+    calculation = Calculation(Decimal("10"), Decimal("5"), "add", Decimal("15"))
+    assert calculation.a == Decimal("10")
+    assert calculation.b == Decimal("5")
+    assert calculation.operation_name == "add"
+    assert calculation.result == Decimal("15")
 
-def test_clear_history(setup_calculations):
-    """Test clearing the entire calculation history."""
-    _ = setup_calculations  # Explicitly reference fixture
-    Calculations.clear_history()
-    assert len(Calculations.get_history()) == 0, "History was not cleared"
+def test_perform_calculation():
+    """Test the perform() method for calculations."""
+    calculation = Calculation(Decimal("10"), Decimal("5"), "add", Decimal("15"))
+    assert calculation.perform() == Decimal("15")
 
-def test_get_latest(setup_calculations):
-    """Test getting the latest calculation from the history."""
-    _ = setup_calculations  # Explicitly reference fixture
-    latest = Calculations.get_latest()
-    assert latest is not None, "Latest calculation is None"
-    assert latest.a == Decimal('20') and latest.b == Decimal('3'), "Did not get the correct latest calculation"
+def test_add_calculation():
+    """Ensure calculations are added to history."""
+    history_manager = Calculations()
+    calculation = Calculation(Decimal("15"), Decimal("7"), "add", Decimal("22"))
+    history_manager.add_calculation(calculation)
+    history = history_manager.get_history()
+    assert len(history) == 1
+    assert history[0].result == Decimal("22")
 
-def test_find_by_operation(setup_calculations):
-    """Test finding calculations in the history by operation type."""
-    _ = setup_calculations  # Explicitly reference fixture
-    if hasattr(Calculations, "find_by_operation"):
-        add_operations = Calculations.find_by_operation("add")
-        assert len(add_operations) == 1, "Did not find the correct number of calculations with add operation"
+def test_clear_history():
+    """Ensure clearing history removes all stored calculations."""
+    history_manager = Calculations()
+    history_manager.add_calculation(Calculation(Decimal("5"), Decimal("2"), "multiply", Decimal("10")))
+    history_manager.clear_history()
+    assert len(history_manager.get_history()) == 0
+    assert not os.path.exists(HISTORY_FILE)
 
-        subtract_operations = Calculations.find_by_operation("subtract")
-        assert len(subtract_operations) == 1, "Did not find the correct number of calculations with subtract operation"
-    else:
-        pytest.skip("find_by_operation method is missing in Calculations class")
-
-def test_get_latest_with_empty_history(setup_calculations):
-    """Test getting the latest calculation when the history is empty."""
-    _ = setup_calculations  # Explicitly reference fixture
-    Calculations.clear_history()
-    assert Calculations.get_latest() is None, "Expected None for latest calculation with empty history"
+def test_save_and_load_history():
+    """Ensure history is saved and loaded correctly from CSV."""
+    history_manager = Calculations()
+    history_manager.add_calculation(Calculation(Decimal("8"), Decimal("4"), "subtract", Decimal("4")))
+    # Reload history
+    reloaded_manager = Calculations()
+    history = reloaded_manager.get_history()
+    assert len(history) == 1
+    assert history[0].result == Decimal("4")

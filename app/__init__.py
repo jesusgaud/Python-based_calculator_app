@@ -2,104 +2,27 @@ import os
 import sys
 import logging
 import logging.config
-import pkgutil
-import importlib
-from dotenv import load_dotenv  # Third-party package
-from app.commands import CommandHandler, Command  # Import CommandHandler
-from app.plugins import load_plugins  # Import load_plugins
-from app.plugins.modulus import ModulusCommand
-from app.plugins.power import PowerCommand
-from app.plugins.greet import GreetCommand
-from .calculations import Calculations
-from .operations import add, subtract, multiply, divide
+from dotenv import load_dotenv
 
-class AddCommand(Command):
-    """Command to handle addition."""
-    def execute(self, *args):
-        if len(args) != 2:
-            print("Usage: add <num1> <num2>")
-            return
-        try:
-            num1, num2 = map(float, args)
-            result = add(num1, num2)
-            print(f"{num1:g} + {num2:g} = {result:g}")
-        except ValueError:
-            print("Invalid number input. Use numeric values.")
-
-class SubtractCommand(Command):
-    """Command to handle subtraction."""
-    def execute(self, *args):
-        if len(args) != 2:
-            print("Usage: subtract <num1> <num2>")
-            return
-        try:
-            num1, num2 = map(float, args)
-            result = subtract(num1, num2)
-            print(f"{num1:g} - {num2:g} = {result:g}")
-        except ValueError:
-            print("Invalid number input. Use numeric values.")
-
-class MultiplyCommand(Command):
-    """Command to handle multiplication."""
-    def execute(self, *args):
-        if len(args) != 2:
-            print("Usage: multiply <num1> <num2>")
-            return
-        try:
-            num1, num2 = map(float, args)
-            result = multiply(num1, num2)
-            print(f"{num1:g} x {num2:g} = {result:g}")
-        except ValueError:
-            print("Invalid number input. Use numeric values.")
-
-class DivideCommand(Command):
-    """Command to handle division."""
-    def execute(self, *args):
-        if len(args) != 2:
-            print("Usage: divide <num1> <num2>")
-            return
-        try:
-            num1, num2 = map(float, args)
-            if num2 == 0:
-                print("Error: Cannot divide by zero.")
-                return
-            result = divide(num1, num2)
-            print(f"{num1:g} / {num2:g} = {result:g}")
-        except ValueError:
-            print("Invalid number input. Use numeric values.")
-
-class HistoryCommand(Command):
-    """Command to display calculation history."""
-    def execute(self):
-        try:
-            history = Calculations.get_history()
-            if not history:
-                print("No calculation history available.")
-                return
-            print("\nCalculation History:")
-            for record in history:
-                print(record)
-        except Exception as e:
-            logging.error("Error retrieving history: %s", str(e))
-
-class GreetCommand(Command):
-    """Command for greeting a user."""
-    def execute(self, *args):
-        if not args:
-            print("Usage: greet <name>")
-            return
-        name = " ".join(args)  # Allow multiple words as name
-        print(f"Hello, {name}! Welcome to the calculator.")
+# ✅ Delayed Imports to prevent circular dependency
+def lazy_imports():
+    global CommandHandler, load_plugins, Calculations, Calculation, add, subtract, multiply, divide
+    from app.commands import CommandHandler
+    from app.plugins import load_plugins
+    from app.calculations_global import Calculations, Calculation
+    from app.operations import add, subtract, multiply, divide
 
 class App:
     """Main application class that loads environment variables, plugins, and executes commands."""
 
-    command_handler = CommandHandler()  # ✅ Global Command Handler
+    command_handler = None  # ✅ Prevent multiple instances
 
     def __init__(self):
         """Initialize the application, configure logging, and load settings."""
+        lazy_imports()  # ✅ Load dynamically to prevent circular imports
+
         os.makedirs('logs', exist_ok=True)
-        self.configure_logging()
+        self.configure_logging()  # ✅ Ensure logging is configured
         load_dotenv()
 
         self.settings = dict(os.environ.items())  # Load environment variables into a dictionary
@@ -107,23 +30,10 @@ class App:
 
         self.ENVIRONMENT = self.settings.get("ENVIRONMENT", "PRODUCTION")
 
-        load_plugins(App.command_handler)
+        if App.command_handler is None:
+            App.command_handler = CommandHandler()  # ✅ Initialize only once
 
-        App.command_handler.register_command("add", AddCommand())
-        App.command_handler.register_command("subtract", SubtractCommand())
-        App.command_handler.register_command("multiply", MultiplyCommand())
-        App.command_handler.register_command("divide", DivideCommand())
-        App.command_handler.register_command("history", HistoryCommand())
-        App.command_handler.register_command("menu", MenuCommand(App.command_handler))
-
-        if "modulus" in App.command_handler.commands:
-            App.command_handler.register_command("modulus", ModulusCommand())
-
-        if "power" in App.command_handler.commands:
-            App.command_handler.register_command("power", PowerCommand())
-
-        if "greet" in App.command_handler.commands:
-            App.command_handler.register_command("greet", GreetCommand())
+        self.register_commands()  # ✅ Ensure commands are registered
 
         logging.info("Running in %s mode", self.ENVIRONMENT)
 
@@ -140,45 +50,96 @@ class App:
             )
         logging.info("Logging configured.")
 
-    def load_plugins(self):
-        """Dynamically discover and load plugins from the plugins directory."""
-        plugins_package = 'app.plugins'
-        plugins_path = plugins_package.replace('.', '/')
-        if not os.path.exists(plugins_path):
-            logging.warning("Plugins directory not found. Skipping plugin loading.")
-            return
+    def register_commands(self):
+        """Register all available commands."""
+        from app.operations import add, subtract, multiply, divide
+        from app.commands import Command
+        from app.calculations_global import Calculations, Calculation
 
-        for _, plugin_name, is_pkg in pkgutil.iter_modules([plugins_path]):
-            if is_pkg:
+        class AddCommand(Command):
+            """Command to handle addition."""
+            def execute(self, *args):
+                if len(args) != 2:
+                    print("Usage: add <num1> <num2>")
+                    return
                 try:
-                    plugin_module = importlib.import_module(f'{plugins_package}.{plugin_name}')
-                    self.register_plugin_commands(plugin_module, plugin_name)
-                    logging.info(f"Loaded plugin: {plugin_name}")
-                except ImportError as e:
-                    logging.error(f"Failed to load plugin {plugin_name}: {e}")
-        print("Registered Commands:", list(self.command_handler.commands.keys()))
+                    num1, num2 = map(float, args)
+                    result = add(num1, num2)
+                    Calculations().add_calculation(Calculation(num1, num2, add, "add"))  # ✅ Fix
+                    print(f"{num1:g} + {num2:g} = {result:g}")
+                except ValueError:
+                    print("Invalid number input. Use numeric values.")
 
-    def register_plugin_commands(self, plugin_module, plugin_name):
-        """Register commands from dynamically loaded plugins."""
-        registered = False
-        for item_name in dir(plugin_module):
-            item = getattr(plugin_module, item_name)
-            if isinstance(item, type) and issubclass(item, Command) and item is not Command:
-                self.command_handler.register_command(plugin_name, item())
-                logging.info(f"Registered command from plugin: {plugin_name}")
-                print(f"Registered Plugin: {plugin_name}")
-                registered = True
+        class SubtractCommand(Command):
+            """Command to handle subtraction."""
+            def execute(self, *args):
+                if len(args) != 2:
+                    print("Usage: subtract <num1> <num2>")
+                    return
+                try:
+                    num1, num2 = map(float, args)
+                    result = subtract(num1, num2)
+                    Calculations().add_calculation(Calculation(num1, num2, subtract, "subtract"))  # ✅ Fix
+                    print(f"{num1:g} - {num2:g} = {result:g}")
+                except ValueError:
+                    print("Invalid number input. Use numeric values.")
 
-        if not registered:
-            logging.warning(f"No valid commands found in plugin: {plugin_name}")
-            if plugin_name in self.command_handler.commands:
-                del self.command_handler.commands[plugin_name]  # Remove invalid plugin command
+        class MultiplyCommand(Command):
+            """Command to handle multiplication."""
+            def execute(self, *args):
+                if len(args) != 2:
+                    print("Usage: multiply <num1> <num2>")
+                    return
+                try:
+                    num1, num2 = map(float, args)
+                    result = multiply(num1, num2)
+                    Calculations().add_calculation(Calculation(num1, num2, multiply, "multiply"))  # ✅ Fix
+                    print(f"{num1:g} x {num2:g} = {result:g}")
+                except ValueError:
+                    print("Invalid number input. Use numeric values.")
+
+        class DivideCommand(Command):
+            """Command to handle division."""
+            def execute(self, *args):
+                if len(args) != 2:
+                    print("Usage: divide <num1> <num2>")
+                    return
+                try:
+                    num1, num2 = map(float, args)
+                    if num2 == 0:
+                        print("Error: Cannot divide by zero.")
+                        return
+                    result = divide(num1, num2)
+                    Calculations().add_calculation(Calculation(num1, num2, divide, "divide"))  # ✅ Fix
+                    print(f"{num1:g} / {num2:g} = {result:g}")
+                except ValueError:
+                    print("Invalid number input. Use numeric values.")
+
+        class HistoryCommand(Command):
+            """Command to display calculation history."""
+            def execute(self):
+                history = Calculations().get_history()
+                if not history:
+                    print("No calculation history available.")
+                    return
+                print("\nCalculation History:")
+                for record in history:
+                    print(record)
+
+        # ✅ Register commands dynamically
+        commands = {
+            "add": AddCommand(),
+            "subtract": SubtractCommand(),
+            "multiply": MultiplyCommand(),
+            "divide": DivideCommand(),
+            "history": HistoryCommand(),  # ✅ Fix: Ensure history command is registered
+        }
+        for cmd, instance in commands.items():
+            App.command_handler.register_command(cmd, instance)
 
     def start(self):
         """Start the interactive command loop (REPL mode)."""
-        self.load_plugins()
         logging.info("Application started. Type 'exit' to quit.")
-
         try:
             while True:
                 cmd_input = input(">>> ").strip().split()
@@ -202,20 +163,4 @@ class App:
         finally:
             logging.info("Application shutdown.")
 
-class MenuCommand(Command):
-    """Command to display all available commands."""
-
-    def __init__(self, command_handler):
-        """Receives a reference to the command handler to list available commands."""
-        self.command_handler = command_handler
-
-    def execute(self, *args):
-        """Displays all registered commands."""
-        print("\nAvailable Commands:")
-        for command in self.command_handler.commands.keys():
-            print(f"- {command}")
-        print("Type 'exit' to quit.")
-
-if __name__ == "__main__":
-    app = App()
-    app.start()
+__all__ = ["App"]

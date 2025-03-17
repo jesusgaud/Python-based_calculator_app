@@ -1,13 +1,17 @@
 # conftest.py
+import os
 from decimal import Decimal
+import pytest
 from faker import Faker
-from app.operations import add, subtract, multiply, divide
+from app.math_operations import add, subtract, multiply, divide  # ✅ Use direct function imports
+from app.calculations_global import Calculations
 
 fake = Faker()
 
+HISTORY_FILE = "history.csv"
+
 def generate_test_data(num_records):
     """Generates test data for both Calculator and Calculation tests."""
-
     # Define operation mappings
     operation_mappings = {
         'add': add,
@@ -17,16 +21,14 @@ def generate_test_data(num_records):
     }
 
     for _ in range(num_records):
-        a = Decimal(fake.random_number(digits=2))  # Generate a 2-digit number
+        a = Decimal(fake.random_number(digits=2))
         b = Decimal(fake.random_number(digits=2)) if _ % 4 != 3 else Decimal(1)  # Prevent zero in division
         operation_name = fake.random_element(elements=list(operation_mappings.keys()))
         operation_func = operation_mappings[operation_name]
 
-        # Ensure `b` is never zero when division is tested
         if callable(operation_func) and operation_func is divide and b == Decimal(0):
             b = Decimal(1)
 
-        # Calculate expected result
         try:
             expected = operation_func(a, b)
         except ZeroDivisionError:
@@ -34,24 +36,11 @@ def generate_test_data(num_records):
 
         yield a, b, operation_name, operation_func, expected
 
-def pytest_addoption(parser):
-    parser.addoption("--num_records", action="store", default=5, type=int,
-                     help="Number of test records to generate")
-
-def pytest_generate_tests(metafunc):
-    # Check if the test is expecting any of the dynamically generated fixtures
-    if {"a", "b", "expected"}.intersection(set(metafunc.fixturenames)):
-        num_records = metafunc.config.getoption("num_records")
-        # Adjust the parameterization to include both
-        # operation_name and operation for broad compatibility
-        # Ensure 'operation_name' is used for identifying the
-        # operation in Calculator class tests
-        # 'operation' (function reference) is used for
-        # Calculation class tests.
-        parameters = list(generate_test_data(num_records))
-        # Modify parameters to fit test functions' expectations
-        modified_parameters = [
-            (a, b, op_name if 'operation_name' in metafunc.fixturenames else op_func, expected)
-            for a, b, op_name, op_func, expected in parameters
-        ]
-        metafunc.parametrize("a,b,operation,expected", modified_parameters)
+@pytest.fixture(autouse=True)
+def clean_history():
+    """Ensures test isolation by clearing calculation history before each test."""
+    calc_instance = Calculations()
+    calc_instance.clear_history()
+    yield
+    if os.path.exists(HISTORY_FILE):
+        os.remove(HISTORY_FILE)
