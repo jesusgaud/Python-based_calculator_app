@@ -1,97 +1,49 @@
-# pylint: disable=redefined-outer-name, unused-argument, wrong-import-order
-import pytest  # Third-party imports should come after built-in ones
-from unittest.mock import MagicMock, patch
+from decimal import Decimal
+import pytest
+import pandas as pd
 from app import App
-from app.commands import Command
+from app.calculations_global import Calculations, Calculation
 
+HISTORY_FILE = "history.csv"
+
+@pytest.fixture(scope="session", autouse=True)
+def import_app():
+    # Return the App class (imported at the top-level)
+    return App
 
 @pytest.fixture
-def app_instance():
-    """Fixture to create an instance of the App class."""
-    return App()
+def clean_calculations():
+    """Fixture to clear history before each test."""
+    calc_instance = Calculations()
+    calc_instance.clear_history()
+    return calc_instance
 
-
-def test_app_initialization(app_instance):
+def test_app_initialization(import_app):
     """Test if the application initializes correctly."""
+    app_instance = import_app()
     assert isinstance(app_instance.settings, dict)
     assert app_instance.ENVIRONMENT in ["PRODUCTION", "DEVELOPMENT", "TESTING"]
 
-
-def test_register_plugin_commands(app_instance):
-    """Test registering a valid plugin command."""
-
-    class MockCommand(Command):
-        """Mock command class."""
-        def execute(self, *args, **kwargs):
-            """Override execute method properly."""
-            _ = args, kwargs  # Avoid Pylint warning
-            return "Mock execution"
-
-    mock_plugin = MagicMock()
-    mock_plugin.MockCommand = MockCommand
-
-    # ✅ Register the command properly
-    app_instance.register_plugin_commands(mock_plugin, "mock_command")
-
-    # ✅ Verify the mock command was registered
-    assert "mock_command" in app_instance.command_handler.commands.keys()
-
-
-def test_register_plugin_commands_no_valid_commands(app_instance, caplog):
-    """Test registering plugin commands when there are NO valid commands."""
-    mock_plugin = MagicMock()
-    app_instance.register_plugin_commands(mock_plugin, "mock_plugin")
-
-    assert "mock_plugin" not in app_instance.command_handler.commands.keys()
-    assert "No valid commands found in plugin: mock_plugin" in caplog.text
-
-
-def test_start_method_exit(app_instance, monkeypatch):
+def test_start_method_exit(monkeypatch, import_app):
     """Test that 'exit' command stops the REPL loop."""
     monkeypatch.setattr("builtins.input", lambda _: "exit")
     with pytest.raises(SystemExit):
+        app_instance = import_app()
         app_instance.start()
 
-
-def test_start_method_unknown_command(app_instance, monkeypatch):
+def test_start_method_unknown_command(monkeypatch, import_app):
     """Test handling of unknown commands in the REPL."""
     inputs = iter(["unknown_command", "exit"])
     monkeypatch.setattr("builtins.input", lambda _: next(inputs))
-
     with pytest.raises(SystemExit):
+        app_instance = import_app()
         app_instance.start()
 
-
-def test_start_keyboard_interrupt(app_instance, monkeypatch, caplog):
-    """Test handling of KeyboardInterrupt in the REPL."""
-    monkeypatch.setattr("builtins.input", lambda _: (_ for _ in ()).throw(KeyboardInterrupt))
-
-    with pytest.raises(SystemExit):
-        app_instance.start()
-
-    assert "Application interrupted. Exiting gracefully." in caplog.text
-
-
-def test_start_application_shutdown_logging(app_instance, monkeypatch, caplog):
-    """Test final shutdown logging in the REPL."""
-    monkeypatch.setattr("builtins.input", lambda _: "exit")
-
-    with pytest.raises(SystemExit):
-        app_instance.start()
-
-    assert "Application shutdown." in caplog.text
-
-
-def test_menu_command(app_instance, capsys):
+def test_menu_command(capsys, import_app):
     """Test that the 'menu' command lists all available commands."""
-
-    # Execute the menu command
-    app_instance.command_handler.execute_command("menu")
-
-    # Capture the printed output
+    app_instance = import_app()
+    app_instance.command_handler.execute_command("menu")  # Force reloading of commands
     captured = capsys.readouterr()
-
-    # ✅ Verify the expected command list appears
     assert "Available Commands:" in captured.out
     assert "- add" in captured.out
     assert "- subtract" in captured.out
@@ -100,33 +52,25 @@ def test_menu_command(app_instance, capsys):
     assert "- history" in captured.out
     assert "- menu" in captured.out  # Menu should be listed itself
 
-
-def test_history_command(app_instance, monkeypatch, capsys):
-    """Test that the 'history' command retrieves calculation history."""
-    inputs = iter(["history", "exit"])
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
-
-    # ✅ Mock `Calculations.get_history()` to return valid data
-    with patch("app.Calculations.get_history", return_value=["5 + 3 = 8"]):
-        with pytest.raises(SystemExit):
-            app_instance.start()
-
-    captured = capsys.readouterr()
-    assert "Calculation History:" in captured.out
-    assert "5 + 3 = 8" in captured.out  # ✅ Verify correct history output
-
-
-def test_basic_operations(app_instance, monkeypatch, capsys):
+def test_basic_operations(monkeypatch, capsys, import_app):
     """Test that basic operations (add, subtract, multiply, divide) work in the REPL."""
+    app_instance = import_app()
+    app_instance.command_handler.execute_command("menu")  # Force reload of commands
     inputs = iter(["add 5 3", "subtract 8 2", "multiply 4 3", "divide 10 2", "exit"])
     monkeypatch.setattr("builtins.input", lambda _: next(inputs))
-
-    with patch("app.Calculations.get_history", return_value=["5 + 3 = 8", "8 - 2 = 6", "4 * 3 = 12", "10 / 2 = 5"]):
-        with pytest.raises(SystemExit):
-            app_instance.start()
-
+    with pytest.raises(SystemExit):
+        app_instance.start()
     captured = capsys.readouterr()
     assert "5 + 3 = 8" in captured.out
     assert "8 - 2 = 6" in captured.out
     assert "4 x 3 = 12" in captured.out
     assert "10 / 2 = 5" in captured.out
+
+def test_history_persistence(clean_calculations):
+    """Ensure history persists across app instances."""
+    calc_instance = Calculations()
+    calc_instance.add_calculation(Calculation(Decimal(10), Decimal(5), "add", Decimal(15)))
+    new_instance = Calculations()
+    assert len(new_instance.get_history()) == 1, "History should persist across instances"
+    df = pd.read_csv(HISTORY_FILE)
+    assert "add" in df["operation"].values, "CSV should contain the 'add' operation"

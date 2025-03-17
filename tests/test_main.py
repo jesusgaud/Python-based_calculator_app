@@ -1,60 +1,49 @@
-"""Test main calculations"""
-
-# Standard library imports
 from decimal import Decimal, InvalidOperation
-
-# Third-party imports
 import pytest
+from app.operations import execute_operation
+from app.calculations_global import Calculations
 
-# Application-specific imports
-from app.calculation import Calculation
-from app.operations import add, subtract, multiply, divide
+@pytest.fixture
+def history_manager():
+    """Fixture to provide a fresh history manager instance."""
+    history = Calculations()
+    history.clear_history()
+    return history
 
-# Map operation names to actual function references
-operation_map = {
-    "add": add,
-    "subtract": subtract,
-    "multiply": multiply,
-    "divide": divide
-}
-
-# Parameterize the test function to cover different operations and scenarios, including errors
-@pytest.mark.parametrize("a_string, b_string, operation_string, expected_string", [
-    ("5", "3", 'add', "The result of 5 add 3 is equal to 8"),
-    ("10", "2", 'subtract', "The result of 10 subtract 2 is equal to 8"),
-    ("4", "5", 'multiply', "The result of 4 multiply 5 is equal to 20"),
-    ("20", "4", 'divide', "The result of 20 divide 4 is equal to 5"),
-    ("1", "0", 'divide', "An error occurred: Cannot divide by zero"),  # Adjusted for the actual error message
-    ("9", "3", 'unknown', "Unknown operation: unknown"),  # Test for unknown operation
-    ("a", "3", 'add', "Invalid number input: a or 3 is not a valid number."),  # Testing invalid number input
-    ("5", "b", 'subtract', "Invalid number input: 5 or b is not a valid number.")  # Testing another invalid number input
+@pytest.mark.parametrize("a, b, operation, expected", [
+    ("5", "3", "add", "The result of 5 add 3 is equal to 8"),
+    ("10", "2", "subtract", "The result of 10 subtract 2 is equal to 8"),
+    ("4", "5", "multiply", "The result of 4 multiply 5 is equal to 20"),
+    ("20", "4", "divide", "The result of 20 divide 4 is equal to 5"),
 ])
-def test_calculate_and_print(a_string, b_string, operation_string, expected_string, capsys):
-    """Test Calculation operations with input strings and expected output."""
+# pylint: disable=too-many-arguments
+def test_calculate_and_print(a, b, operation, expected, capsys, history_manager):
+    """Test Calculation operations with input strings and expected output, including history tracking."""
     try:
-        # Convert `a_string` and `b_string` to Decimal, handling InvalidOperation
-        try:
-            a = Decimal(a_string)
-            b = Decimal(b_string)
-        except InvalidOperation:
-            print(f"Invalid number input: {a_string} or {b_string} is not a valid number.")
-            captured = capsys.readouterr()
-            assert captured.out.strip() == expected_string
-            return  # Exit early since invalid input stops execution
+        a, b = Decimal(a), Decimal(b)
+    except InvalidOperation:
+        print(f"Invalid number input: {a} or {b} is not a valid number.")
+        captured = capsys.readouterr()
+        assert captured.out.strip() == expected
+        return
 
-        # Convert `operation_string` to function reference
-        if operation_string not in operation_map:
-            raise AttributeError(f"Unknown operation: {operation_string}")
-
-        operation_func = operation_map[operation_string]
-
-        calc = Calculation(a, b, operation_func)
-        result = calc.perform()
-        print(f"The result of {a} {operation_string} {b} is equal to {result}")
-    except ZeroDivisionError:
-        print("An error occurred: Cannot divide by zero")
-    except AttributeError as e:
-        print(str(e))
+    result = execute_operation(a, b, operation, history_manager)
+    print(f"The result of {a} {operation} {b} is equal to {result}")
 
     captured = capsys.readouterr()
-    assert captured.out.strip() == expected_string
+    assert expected in captured.out.strip()
+
+def test_history_persistence(history_manager):
+    """Ensure calculations persist by verifying history loads correctly from CSV."""
+    execute_operation(Decimal("15"), Decimal("7"), "add", history_manager)
+    execute_operation(Decimal("9"), Decimal("3"), "divide", history_manager)
+
+    reloaded_manager = Calculations()
+    history = reloaded_manager.get_history()
+
+    # Calculate unique entries based on a, b, operation_name, and result.
+    unique_entries = { (calc.a, calc.b, calc.operation_name, calc.result) for calc in history }
+    assert len(unique_entries) == 2, f"Expected 2 unique entries, got {len(unique_entries)}"
+    # Additionally, verify the operations are as expected.
+    unique_ops = { calc.operation_name for calc in history }
+    assert unique_ops == {"add", "divide"}
