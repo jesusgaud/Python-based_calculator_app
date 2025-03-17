@@ -10,7 +10,7 @@ icecream==2.1.4
 iniconfig==2.0.0
 isort==5.13.2
 mccabe==0.7.0
-numpy==2.2.3
+numpy>=1.23.0,<2.0.0
 packaging==23.2
 pandas==2.2.3
 platformdirs==4.1.0
