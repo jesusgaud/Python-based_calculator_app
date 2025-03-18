@@ -1,6 +1,6 @@
 from decimal import Decimal
 from app.commands import Command
-from app.operations import modulus
+from app.math_operations import modulus
 
 class ModulusCommand(Command):
     """Command to calculate modulus (remainder)."""
@@ -11,10 +11,9 @@ class ModulusCommand(Command):
             return
         try:
             num1, num2 = map(int, args)
-            print(f"{num1} % {num2} = {modulus(num1, num2)}")  # ✅ Uses the function
+            result = modulus(num1, num2)
+            print(f"{num1} % {num2} = {result}")  # ✅ Uses the function
         except ValueError:
             print("Invalid input. Use numeric values.")
-
-def operation(a: Decimal, b: Decimal) -> Decimal:
-    """Perform modulus operation."""
-    return a % b  # Ensures compatibility with tests
+        except ZeroDivisionError:
+            print("Error: Cannot calculate modulus by zero.")  # ✅ Handle zero division error
