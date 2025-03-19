@@ -52,6 +52,13 @@ jobs:
             echo "⚠️ setup.py not found. Skipping editable install."
           fi
 
+      - name: Ensure required directories and files exist
+        run: |
+          mkdir -p logs
+          touch logs/app.log
+          touch history.csv
+          echo "✅ Logs and history files initialized"
+
       - name: Run Linter (Pylint)
         run: |
           CHANGED_FILES=$(git diff --name-only origin/main | grep '\.py$' || echo "")
