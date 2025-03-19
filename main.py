@@ -37,8 +37,6 @@ def load_commands():
         logging.error("No operations found. Ensure plugins are properly loaded.")
     return operations
 
-from app.calculations_global import Calculation  # ✅ Import Calculation class
-
 def calculate_and_print(a, b, operation, history_manager):
     """Performs calculation and logs the result."""
     commands = load_commands()
@@ -86,7 +84,7 @@ def interactive_mode():
         user_input = input("\nEnter calculation (e.g., '5 3 add'): ").strip().lower()
         if user_input == "exit":
             print("Exiting calculator. Goodbye!")
-            break
+            sys.exit(0)  # ✅ Ensure `exit` command raises `SystemExit`
         elif user_input == "menu":
             print("\nAvailable commands:", ", ".join(load_commands().keys()))
             continue
@@ -116,6 +114,8 @@ def handle_non_math_commands(command):
     elif command == "clear_history":
         history_manager.clear_history()
         print("History cleared.")
+    else:
+        print(f"Unknown command: {command}")  # ✅ Fix: Ensure unknown commands print the expected message
 
 def display_history():
     """Displays the calculation history."""
