@@ -1,88 +1,108 @@
 import pytest
-from unittest.mock import MagicMock
-from typing import Optional, List
 from app.core.history_interface import HistoryInterface
 
-# ✅ TEST: Ensure `HistoryInterface` cannot be instantiated directly
-def test_cannot_instantiate_history_interface():
-    """Ensure `HistoryInterface` cannot be instantiated directly."""
-    with pytest.raises(TypeError, match="Can't instantiate abstract class HistoryInterface"):
-        HistoryInterface()
-
-# ✅ Create a concrete class to test abstract methods
+# Concrete subclass implementing all abstract methods for testing
 class ConcreteHistory(HistoryInterface):
-    """Concrete implementation of HistoryInterface for testing."""
-
     def __init__(self):
-        self.history = []
+        # initialize an empty list to store history entries as (expression, result) tuples
+        self.records = []
 
-    def add_calculation(self, calculation) -> None:
-        self.history.append(calculation)
+    def add(self, expression, result):
+        # Call base class method (executes abstract method body in HistoryInterface)
+        super().add(expression, result)
+        # Add the record to history
+        self.records.append((expression, result))
+        # Return a value to indicate success (could be True or the added record)
+        return True
 
-    def get_latest(self) -> Optional[str]:
-        return self.history[-1] if self.history else None
+    def get_last(self):
+        super().get_last()
+        # Return the last record if available, else None
+        return self.records[-1] if self.records else None
 
-    def get_history(self) -> List[str]:
-        return self.history
+    def get_all(self):
+        super().get_all()
+        # Return a copy of all records to avoid external modification
+        return list(self.records)
 
-    def clear_history(self) -> None:
-        self.history.clear()
+    def search(self, keyword):
+        super().search(keyword)
+        # Return all records where the keyword is in the expression or result (as string)
+        return [
+            record for record in self.records
+            if keyword in record[0] or keyword in str(record[1])
+        ]
 
-    def find_by_operation(self, operation: str) -> List[str]:
-        return [calc for calc in self.history if getattr(calc, "operation", None) == operation]
+    def remove_last(self):
+        super().remove_last()
+        # Pop the last record if it exists, otherwise return None
+        return self.records.pop() if self.records else None
 
-    def save_history(self) -> None:
-        pass  # Simulate saving logic
+    def clear(self):
+        super().clear()
+        # Clear all records and return True as confirmation
+        self.records.clear()
+        return True
 
-    def load_history(self) -> None:
-        pass  # Simulate loading logic
+    def count(self):
+        super().count()
+        # Return the number of records currently in history
+        return len(self.records)
 
-# ✅ TEST: Ensure all abstract methods are implemented in `ConcreteHistory`
-@pytest.fixture
-def history_instance():
-    """Fixture to create an instance of the concrete history class."""
-    return ConcreteHistory()
+def test_add_and_retrieve():
+    """Test adding entries and retrieving the last entry and all entries."""
+    history = ConcreteHistory()
+    # After adding an entry, get_last should return that entry, and get_all should include it
+    result = history.add("1+1", "2")
+    assert result is True  # add returns True on success
+    assert history.get_last() == ("1+1", "2")
+    assert history.get_all() == [("1+1", "2")]
 
-def test_add_calculation(history_instance):
-    """Test adding a calculation."""
-    mock_calc = MagicMock(operation="add", value=10)
-    history_instance.add_calculation(mock_calc)
-    assert len(history_instance.get_history()) == 1
-    assert history_instance.get_latest() == mock_calc
+def test_search_functionality():
+    """Test searching within the history records."""
+    history = ConcreteHistory()
+    # Add multiple entries
+    history.add("2+2", "4")
+    history.add("3+5", "8")
+    history.add("10-3", "7")
+    # Search by expression substring
+    assert history.search("2+2") == [("2+2", "4")]
+    # Search by result value (as string)
+    assert history.search("8") == [("3+5", "8")]
+    # Search for a term not present
+    assert history.search("9") == []
 
-def test_get_latest_empty(history_instance):
-    """Test get_latest when history is empty."""
-    assert history_instance.get_latest() is None
+def test_remove_last_and_count():
+    """Test removing the last entry and the count method."""
+    history = ConcreteHistory()
+    # Removing from empty history should yield None
+    assert history.remove_last() is None
+    # Add two entries
+    history.add("5*5", "25")
+    history.add("6*6", "36")
+    assert history.count() == 2
+    # Remove last entry and verify it was the second one added
+    removed = history.remove_last()
+    assert removed == ("6*6", "36")
+    # After removal, count should decrement and last entry should be the first one
+    assert history.count() == 1
+    assert history.get_last() == ("5*5", "25")
 
-def test_get_history(history_instance):
-    """Test retrieving the full history."""
-    mock_calc1 = MagicMock(operation="add", value=10)
-    mock_calc2 = MagicMock(operation="subtract", value=5)
-    history_instance.add_calculation(mock_calc1)
-    history_instance.add_calculation(mock_calc2)
-    assert history_instance.get_history() == [mock_calc1, mock_calc2]
+def test_clear_history():
+    """Test clearing the history."""
+    history = ConcreteHistory()
+    history.add("9/3", "3")
+    history.add("7-2", "5")
+    # Ensure history has entries before clearing
+    assert history.count() == 2
+    assert history.get_all() == [("9/3", "3"), ("7-2", "5")]
+    # Clear history and verify it is empty
+    assert history.clear() is True
+    assert history.count() == 0
+    assert history.get_all() == []
+    assert history.get_last() is None
 
-def test_clear_history(history_instance):
-    """Test clearing history."""
-    mock_calc = MagicMock(operation="add", value=10)
-    history_instance.add_calculation(mock_calc)
-    history_instance.clear_history()
-    assert len(history_instance.get_history()) == 0
-
-def test_find_by_operation(history_instance):
-    """Test finding calculations by operation."""
-    mock_calc1 = MagicMock(operation="add", value=10)
-    mock_calc2 = MagicMock(operation="subtract", value=5)
-    history_instance.add_calculation(mock_calc1)
-    history_instance.add_calculation(mock_calc2)
-    result = history_instance.find_by_operation("add")
-    assert len(result) == 1
-    assert result[0] == mock_calc1
-
-def test_save_history(history_instance):
-    """Test save_history is callable."""
-    assert history_instance.save_history() is None  # Should not raise an error
-
-def test_load_history(history_instance):
-    """Test load_history is callable."""
-    assert history_instance.load_history() is None  # Should not raise an error
+def test_abstract_class_cannot_instantiate():
+    """Ensure that HistoryInterface cannot be instantiated directly (abstract)."""
+    with pytest.raises(TypeError):
+        _ = HistoryInterface()

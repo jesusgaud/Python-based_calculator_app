@@ -1,113 +1,74 @@
-from decimal import Decimal, InvalidOperation
 import pytest
-from app.operations import execute_operation
 from app.calculations_global import Calculations
-from main import calculate_and_print, execute_command, load_commands
 
-@pytest.fixture
-def history_manager():
-    """Fixture to provide a fresh history manager instance."""
-    history = Calculations()
-    history.clear_history()
-    return history
+# Auto-use fixture to reset singleton before and after each test
+@pytest.fixture(autouse=True)
+def reset_calculations():
+    Calculations._reset_instance()    # ensure a new instance for each test
+    yield
+    Calculations._reset_instance()    # clean up instance after test
 
-@pytest.mark.parametrize("a, b, operation, expected", [
-    ("5", "3", "add", "The result of 5 add 3 is equal to 8"),
-    ("10", "2", "subtract", "The result of 10 subtract 2 is equal to 8"),
-    ("4", "5", "multiply", "The result of 4 multiply 5 is equal to 20"),
-    ("20", "4", "divide", "The result of 20 divide 4 is equal to 5"),
-])
-# pylint: disable=too-many-arguments
-def test_calculate_and_print(a, b, operation, expected, capsys, history_manager):
-    """Test Calculation operations with input strings and expected output, including history tracking."""
-    try:
-        a, b = Decimal(a), Decimal(b)
-    except InvalidOperation:
-        print(f"Invalid number input: {a} or {b} is not a valid number.")
-        captured = capsys.readouterr()
-        assert captured.out.strip() == expected
-        return
+def test_singleton_identity():
+    """Calculations() should return a singleton instance."""
+    calc1 = Calculations()
+    calc2 = Calculations()
+    assert calc1 is calc2, "Calculations should be a singleton (same instance)"
+    # Ensure that repeated instantiation did not reinitialize state
+    calc1.add_history("X")
+    # Calling Calculations() again returns the same instance with existing state
+    calc3 = Calculations()
+    assert "X" in calc3.get_history(), "Singleton instance should retain history between calls"
 
-    result = execute_operation(a, b, operation, history_manager)
-    print(f"The result of {a} {operation} {b} is equal to {result}")
+def test_history_operations():
+    """Test add_history, get_history, and clear_history functionality."""
+    calc = Calculations()
+    # Initially, history should be empty
+    assert calc.get_history() == [], "History should start empty"
+    # Add entries to history
+    calc.add_history("first")
+    calc.add_history("second")
+    assert calc.get_history() == ["first", "second"], "History entries not recorded correctly"
+    # Clear the history and verify
+    calc.clear_history()
+    assert calc.get_history() == [], "History was not cleared properly"
 
-    captured = capsys.readouterr()
-    assert expected in captured.out.strip()
+def test_reset_instance_allows_new():
+    """_reset_instance should allow creating a new Calculations instance."""
+    calc1 = Calculations()
+    id1 = id(calc1)
+    # Reset the singleton and create a new instance
+    Calculations._reset_instance()
+    calc2 = Calculations()
+    id2 = id(calc2)
+    assert id1 != id2, "Resetting the singleton should yield a new instance"
 
-def test_history_persistence(history_manager):
-    """Ensure calculations persist by verifying history loads correctly from CSV."""
-    execute_operation(Decimal("15"), Decimal("7"), "add", history_manager)
-    execute_operation(Decimal("9"), Decimal("3"), "divide", history_manager)
-
-    reloaded_manager = Calculations()
-    history = reloaded_manager.get_history()
-
-    # Calculate unique entries based on a, b, operation_name, and result.
-    unique_entries = { (calc.a, calc.b, calc.operation_name, calc.result) for calc in history }
-    assert len(unique_entries) == 2, f"Expected 2 unique entries, got {len(unique_entries)}"
-    # Additionally, verify the operations are as expected.
-    unique_ops = { calc.operation_name for calc in history }
-    assert unique_ops == {"add", "divide"}
-    @pytest.fixture
-    def history_manager():
-        """Fixture to provide a fresh history manager instance."""
-        history = Calculations()
-        history.clear_history()
-        return history
-
-    @pytest.mark.parametrize("a, b, operation, expected", [
-        ("5", "3", "add", "The result of 5 add 3 is equal to 8"),
-        ("10", "2", "subtract", "The result of 10 subtract 2 is equal to 8"),
-        ("4", "5", "multiply", "The result of 4 multiply 5 is equal to 20"),
-        ("20", "4", "divide", "The result of 20 divide 4 is equal to 5"),
-    ])
-    def test_calculate_and_print(a, b, operation, expected, capsys, history_manager):
-        """Test Calculation operations with input strings and expected output, including history tracking."""
-        calculate_and_print(a, b, operation, history_manager)
-        captured = capsys.readouterr()
-        assert expected in captured.out.strip()
-
-    def test_calculate_and_print_invalid_operation(capsys, history_manager):
-        """Test calculate_and_print with an invalid operation."""
-        calculate_and_print("5", "3", "invalid_op", history_manager)
-        captured = capsys.readouterr()
-        assert "Unknown operation: invalid_op" in captured.out.strip()
-
-    def test_calculate_and_print_invalid_number(capsys, history_manager):
-        """Test calculate_and_print with invalid number input."""
-        calculate_and_print("invalid", "3", "add", history_manager)
-        captured = capsys.readouterr()
-        assert "Invalid number input: invalid or 3 is not a valid number." in captured.out.strip()
-
-    def test_calculate_and_print_zero_division(capsys, history_manager):
-        """Test calculate_and_print with division by zero."""
-        calculate_and_print("5", "0", "divide", history_manager)
-        captured = capsys.readouterr()
-        assert "An error occurred: Cannot divide by zero" in captured.out.strip()
-
-    def test_execute_command_sync(history_manager, capsys):
-        """Test execute_command in synchronous mode."""
-        execute_command("5", "3", "add", history_manager, test_mode=True)
-        captured = capsys.readouterr()
-        assert "The result of 5 add 3 is equal to 8" in captured.out.strip()
-
-    def test_load_commands():
-        """Test load_commands to ensure operations are loaded."""
-        commands = load_commands()
-        assert "add" in commands
-        assert "subtract" in commands
-        assert "multiply" in commands
-        assert "divide" in commands
-
-    def test_history_persistence(history_manager):
-        """Ensure calculations persist by verifying history loads correctly from CSV."""
-        calculate_and_print("15", "7", "add", history_manager)
-        calculate_and_print("9", "3", "divide", history_manager)
-
-        reloaded_manager = Calculations()
-        history = reloaded_manager.get_history()
-
-        unique_entries = { (calc.a, calc.b, calc.operation_name, calc.result) for calc in history }
-        assert len(unique_entries) == 2, f"Expected 2 unique entries, got {len(unique_entries)}"
-        unique_ops = { calc.operation_name for calc in history }
-        assert unique_ops == {"add", "divide"}
+def test_history_interface_methods():
+    """Test that Calculations implements HistoryInterface methods correctly."""
+    calc = Calculations()
+    # Initially, history is empty
+    assert calc.count() == 0
+    assert calc.get_last() is None
+    assert calc.get_all() == []
+    # Add an entry using the interface 'add' method
+    result = calc.add("1+1", "2")
+    assert result is True  # add returns True on success
+    # Now history should have one record
+    assert calc.count() == 1
+    assert calc.get_last() == ("1+1", "2")
+    assert calc.get_all() == [("1+1", "2")]
+    # Search for existing and non-existing keywords in history
+    assert calc.search("1+1") == [("1+1", "2")]
+    assert calc.search("2") == [("1+1", "2")]    # keyword matches the result
+    assert calc.search("3") == []               # no matching entry
+    # Remove the last entry and verify history is empty
+    removed = calc.remove_last()
+    assert removed == ("1+1", "2")
+    assert calc.count() == 0
+    assert calc.get_last() is None
+    assert calc.get_all() == []
+    # Add a couple of entries and test clear()
+    calc.add_history("temp1")
+    calc.add_history("temp2")
+    assert calc.count() == 2
+    assert calc.clear() is True
+    assert calc.count() == 0

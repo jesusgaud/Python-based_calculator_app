@@ -3,8 +3,7 @@ from app.commands import Command
 from app.math_operations import modulus
 
 class ModulusCommand(Command):
-    """Command to calculate modulus (remainder)."""
-
+    """Command to calculate the modulus (remainder of division)."""
     def execute(self, *args):
         if len(args) != 2:
             print("Usage: modulus <num1> <num2>")
@@ -12,8 +11,8 @@ class ModulusCommand(Command):
         try:
             num1, num2 = map(int, args)
             result = modulus(num1, num2)
-            print(f"{num1} % {num2} = {result}")  # ✅ Uses the function
+            print(f"{num1} % {num2} = {result}")
         except ValueError:
             print("Invalid input. Use numeric values.")
         except ZeroDivisionError:
-            print("Error: Cannot calculate modulus by zero.")  # ✅ Handle zero division error
+            print("Error: Cannot calculate modulus by zero.")

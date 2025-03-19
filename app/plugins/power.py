@@ -3,8 +3,7 @@ from app.commands import Command
 from app.math_operations import power
 
 class PowerCommand(Command):
-    """Command to calculate exponentiation."""
-
+    """Command to calculate exponentiation (power)."""
     def execute(self, *args):
         if len(args) != 2:
             print("Usage: power <base> <exponent>")
@@ -16,5 +15,5 @@ class PowerCommand(Command):
             print("Invalid input. Use numeric values.")
 
 def operation(a: Decimal, b: Decimal) -> Decimal:
-    """Perform exponentiation."""
-    return a ** b  # Ensures compatibility with tests
+    """Perform exponentiation (a^b) for operation plugin integration."""
+    return a ** b

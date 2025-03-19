@@ -1,40 +1,32 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
 
 class HistoryInterface(ABC):
-    """Abstract interface for managing calculation history."""
-
+    """Abstract base class defining the interface for calculator history."""
     @abstractmethod
-    def add_calculation(self, calculation) -> None:
-        """Adds a calculation to the history."""
+    def add(self, expression, result):
+        """Add a calculation record (expression and result) to the history."""
         pass
-
     @abstractmethod
-    def get_latest(self) -> Optional:
-        """Returns the latest calculation if available."""
+    def get_last(self):
+        """Retrieve the last recorded calculation."""
         pass
-
     @abstractmethod
-    def get_history(self) -> List:
-        """Returns the entire calculation history."""
+    def get_all(self):
+        """Retrieve all calculation records."""
         pass
-
     @abstractmethod
-    def clear_history(self) -> None:
-        """Clears history from memory and removes the storage file."""
+    def search(self, keyword):
+        """Search the history for records containing the given keyword."""
         pass
-
     @abstractmethod
-    def find_by_operation(self, operation: str) -> List:
-        """Finds calculations based on the operation name."""
+    def remove_last(self):
+        """Remove the last record and return it."""
         pass
-
     @abstractmethod
-    def save_history(self) -> None:
-        """Saves the history to a storage file."""
+    def clear(self):
+        """Clear all history records."""
         pass
-
     @abstractmethod
-    def load_history(self) -> None:
-        """Loads the calculation history from storage."""
+    def count(self):
+        """Return the number of records in the history."""
         pass
