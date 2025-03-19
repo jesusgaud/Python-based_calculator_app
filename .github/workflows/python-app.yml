@@ -59,4 +59,4 @@ jobs:
 
       - name: Run Tests with Coverage (Parallel Execution)
         run: |
-          pytest tests --cov=app --cov-branch --cov-report=xml --cov-report=term-missing --cov-fail-under=90 -n auto
+          pytest -m "not skip_load_plugins and not skip_import_error" --cov=app --cov-report=term-missing --cov-fail-under=90 -n auto

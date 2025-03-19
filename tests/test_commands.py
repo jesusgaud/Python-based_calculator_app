@@ -1,56 +1,85 @@
-from unittest.mock import MagicMock
 import pytest
-from app.commands import CommandHandler, Command
+from app.math_operations import add, subtract, multiply, divide
+from app.calculations_global import Calculations, Calculation
 
-class MockCommand(Command):
-    """Mock command implementing the execute method."""
-    def execute(self, *args, **kwargs):
-        _ = kwargs
-        return "Mock Execution"
+from app.commands import (
+    CommandHandler, MenuCommand, AddCommand, SubtractCommand,
+    MultiplyCommand, DivideCommand, HistoryCommand
+)
 
-def test_command_handler_register():
-    """Test registering commands."""
-    handler = CommandHandler()
-    command = MockCommand()
+@pytest.fixture
+def command_handler():
+    return CommandHandler()
 
-    handler.register_command("mock_command", command)
-
-    assert "mock_command" in handler.commands
-    assert handler.commands["mock_command"] is command
-
-def test_command_handler_execute():
-    """Test executing registered command."""
-    handler = CommandHandler()
-    command = MagicMock(spec=MockCommand)
-
-    handler.register_command("mock_command", command)
-    handler.execute_command("mock_command")
-
-    command.execute.assert_called_once()
-
-def test_command_handler_execute_unknown(capsys):
-    """Test execution of an unknown command."""
-    handler = CommandHandler()
-
-    handler.execute_command("unknown_command")
+def test_menu_command(command_handler, capsys):
+    command_handler.execute_command("menu")
     captured = capsys.readouterr()
+    assert "Available Commands:" in captured.out
+    assert "- menu" in captured.out
+    assert "- add" in captured.out
+    assert "- subtract" in captured.out
+    assert "- multiply" in captured.out
+    assert "- divide" in captured.out
+    assert "- history" in captured.out
 
+def test_add_command(command_handler, capsys):
+    command_handler.execute_command("add", "2", "3")
+    captured = capsys.readouterr()
+    assert "2 + 3 = 5" in captured.out
+
+def test_add_command_invalid_args(command_handler, capsys):
+    command_handler.execute_command("add", "2")
+    captured = capsys.readouterr()
+    assert "Usage: add <num1> <num2>" in captured.out
+
+def test_subtract_command(command_handler, capsys):
+    command_handler.execute_command("subtract", "5", "3")
+    captured = capsys.readouterr()
+    assert "5 - 3 = 2" in captured.out
+
+def test_subtract_command_invalid_args(command_handler, capsys):
+    command_handler.execute_command("subtract", "5")
+    captured = capsys.readouterr()
+    assert "Usage: subtract <num1> <num2>" in captured.out
+
+def test_multiply_command(command_handler, capsys):
+    command_handler.execute_command("multiply", "2", "3")
+    captured = capsys.readouterr()
+    assert "2 x 3 = 6" in captured.out
+
+def test_multiply_command_invalid_args(command_handler, capsys):
+    command_handler.execute_command("multiply", "2")
+    captured = capsys.readouterr()
+    assert "Usage: multiply <num1> <num2>" in captured.out
+
+def test_divide_command(command_handler, capsys):
+    command_handler.execute_command("divide", "6", "3")
+    captured = capsys.readouterr()
+    assert "6 / 3 = 2" in captured.out
+
+def test_divide_command_invalid_args(command_handler, capsys):
+    command_handler.execute_command("divide", "6")
+    captured = capsys.readouterr()
+    assert "Usage: divide <num1> <num2>" in captured.out
+
+def test_divide_command_divide_by_zero(command_handler, capsys):
+    command_handler.execute_command("divide", "6", "0")
+    captured = capsys.readouterr()
+    assert "Error: Cannot divide by zero." in captured.out
+
+def test_history_command(command_handler, capsys):
+    command_handler.execute_command("add", "2", "3")
+    command_handler.execute_command("history")
+    captured = capsys.readouterr()
+    assert "Calculation History:" in captured.out
+    assert "2 + 3 = 5" in captured.out
+
+def test_history_command_no_history(command_handler, capsys):
+    command_handler.execute_command("history")
+    captured = capsys.readouterr()
+    assert "No calculation history available." in captured.out
+
+def test_unknown_command(command_handler, capsys):
+    command_handler.execute_command("unknown")
+    captured = capsys.readouterr()
     assert "Unknown command. Type 'menu' for a list of commands." in captured.out
-
-def test_abstract_command():
-    """Ensure `Command` cannot be instantiated directly."""
-
-    assert hasattr(Command, "__abstractmethods__")
-    assert "execute" in Command.__abstractmethods__
-
-    class InvalidCommand(Command):
-        """A subclass that does not override `execute` properly."""
-        def execute(self, *args, **kwargs):
-            """Ensure execute is implemented but raises NotImplementedError."""
-            raise NotImplementedError("This is an abstract method.")
-
-    with pytest.raises(TypeError):
-        Command()
-
-    with pytest.raises(NotImplementedError):
-        InvalidCommand().execute()

@@ -1,6 +1,6 @@
 from decimal import Decimal
 from app.commands import Command
-from app.operations import power
+from app.math_operations import power
 
 class PowerCommand(Command):
     """Command to calculate exponentiation."""
