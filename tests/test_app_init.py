@@ -1,185 +1,157 @@
-import pytest
-import os
-import sys
+import builtins
 import logging
-import pandas as pd
-from unittest.mock import patch, MagicMock
-from decimal import Decimal
-from app import App
-from app.calculations_global import Calculations, Calculation
-from app.commands import AddCommand, SubtractCommand, MultiplyCommand, DivideCommand, HistoryCommand
+import sys
+import pytest
+import app
 
-HISTORY_FILE = "history.csv"
+def test_configure_logging(monkeypatch):
+    # Ensure idempotent logging configuration: fileConfig should be called only once
+    calls = []
+    def fake_fileConfig(cfg_path):
+        calls.append(cfg_path)
+    monkeypatch.setattr(logging.config, "fileConfig", fake_fileConfig)
+    app._logging_configured = False
+    app.configure_logging("dummy.conf")
+    # Second call (with logging already configured) should not call fileConfig again
+    app.configure_logging("dummy.conf")
+    assert calls == ["dummy.conf"]
+    # Simulate fileConfig failure to test fallback to basicConfig
+    app._logging_configured = False
+    monkeypatch.setattr(logging.config, "fileConfig", lambda cfg: (_ for _ in ()).throw(Exception("fail")))
+    basic_called = []
+    monkeypatch.setattr(logging, "basicConfig", lambda **kwargs: basic_called.append(True))
+    error_msgs = []
+    monkeypatch.setattr(logging, "error", lambda msg, *args: error_msgs.append(msg % args))
+    app.configure_logging("missing.conf")
+    # basicConfig should have been called once, and an error message logged
+    assert basic_called == [True]
+    assert any("Failed to load logging config from missing.conf" in m for m in error_msgs)
+    # _logging_configured should be set to True after fallback
+    assert app._logging_configured is True
 
-@pytest.fixture(scope="session", autouse=True)
-def import_app():
-    """Return an instance of the App class."""
-    return App()
+def test_start_exit(monkeypatch):
+    # Simulate interactive mode with 'exit' command
+    monkeypatch.setattr(sys, "argv", ["app"])
+    monkeypatch.setattr(builtins, "input", lambda prompt=None: "exit")
+    with pytest.raises(SystemExit) as exc:
+        app.start()
+    assert exc.value.code == 0
+    # Also test 'quit' as an alias for 'exit'
+    monkeypatch.setattr(builtins, "input", lambda prompt=None: "quit")
+    with pytest.raises(SystemExit) as exc2:
+        app.start()
+    assert exc2.value.code == 0
 
-@pytest.fixture
-def clean_calculations():
-    """Fixture to clear history before each test."""
-    calc_instance = Calculations()
-    calc_instance.clear_history()
-    return calc_instance
+def test_start(monkeypatch):
+    # Ensure configure_logging is called, and an interactive loop iteration runs then exits
+    configured_flag = {"called": False}
+    monkeypatch.setattr(app, "configure_logging", lambda: configured_flag.update(called=True) or None)
+    monkeypatch.setattr(sys, "argv", ["app"])
+    # Simulate a blank input (just Enter) followed by 'exit'
+    inputs_iter = iter(["", "exit"])
+    monkeypatch.setattr(builtins, "input", lambda prompt=None: next(inputs_iter))
+    with pytest.raises(SystemExit) as exc:
+        app.start()
+    assert exc.value.code == 0
+    # configure_logging was called once at start
+    assert configured_flag["called"] is True
 
-# ✅ TEST APP INITIALIZATION
-def test_app_initialization(import_app):
-    """Test if the application initializes correctly."""
-    app_instance = import_app
-    assert isinstance(app_instance.settings, dict)
-    assert app_instance.ENVIRONMENT in ["PRODUCTION", "DEVELOPMENT", "TESTING"]
+def test_start_unknown_command(monkeypatch, capsys):
+    # Unknown command in CLI mode should exit with code 1 and message
+    monkeypatch.setattr(sys, "argv", ["app", "unknowncmd"])
+    with pytest.raises(SystemExit) as exc:
+        app.start()
+    assert exc.value.code == 1
+    output = capsys.readouterr().out
+    assert "Unknown command: unknowncmd" in output
 
-# ✅ TEST LOGGING CONFIGURATION
-def test_configure_logging_file_exists(import_app):
-    """Test logging configuration when logging.conf exists."""
-    app_instance = import_app
-    with patch("os.path.exists", return_value=True), patch("logging.config.fileConfig") as mock_file_config:
-        app_instance.configure_logging()
-        mock_file_config.assert_called_once()
+    # Unknown command in interactive mode should not exit immediately
+    monkeypatch.setattr(sys, "argv", ["app"])
+    inputs = iter(["foobar", "exit"])  # 'foobar' is unknown, then exit
+    monkeypatch.setattr(builtins, "input", lambda prompt=None: next(inputs))
+    with pytest.raises(SystemExit) as exc2:
+        app.start()
+    assert exc2.value.code == 0
+    output2 = capsys.readouterr().out
+    # It should report the unknown command and then allow exit
+    assert "Unknown command: foobar" in output2
 
-def test_configure_logging_file_not_exists(import_app):
-    """Test logging configuration when logging.conf does not exist."""
-    app_instance = import_app
-    with patch("os.path.exists", return_value=False), patch("logging.basicConfig") as mock_basic_config:
-        app_instance.configure_logging()
-        mock_basic_config.assert_called_once()
+def test_start_add_command(monkeypatch, capsys):
+    # Interactive 'add' command without name on the same line (should prompt for name)
+    monkeypatch.setattr(sys, "argv", ["app"])
+    inputs1 = iter(["add", "TestItem", "exit"])
+    monkeypatch.setattr(builtins, "input", lambda prompt=None: next(inputs1))
+    with pytest.raises(SystemExit) as exc:
+        app.start()
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "Added TestItem" in out
 
-# ✅ TEST COMMAND REGISTRATION
-def test_register_commands(import_app):
-    """Test that commands are registered correctly."""
-    app_instance = import_app
-    expected_commands = {"add", "subtract", "multiply", "divide", "history"}
-    assert set(app_instance.command_handler.commands.keys()) >= expected_commands
+    # Interactive 'add' command with name on the same line
+    inputs2 = iter(["add AnotherItem", "exit"])
+    monkeypatch.setattr(builtins, "input", lambda prompt=None: next(inputs2))
+    with pytest.raises(SystemExit) as exc2:
+        app.start()
+    assert exc2.value.code == 0
+    out2 = capsys.readouterr().out
+    assert "Added AnotherItem" in out2
 
-# ✅ TEST ADD COMMAND
-def test_add_command_valid_input(capsys):
-    """Test the AddCommand with valid input."""
-    add_command = AddCommand()
-    add_command.execute("5", "3")
-    captured = capsys.readouterr()
-    assert "5 + 3 = 8" in captured.out
+    # CLI 'add' command with a name argument
+    monkeypatch.setattr(sys, "argv", ["app", "add", "CLIItem"])
+    with pytest.raises(SystemExit) as exc3:
+        app.start()
+    assert exc3.value.code == 0
+    out3 = capsys.readouterr().out
+    assert "Added CLIItem" in out3
 
-def test_add_command_missing_arguments(capsys):
-    """Test AddCommand prints usage instructions when arguments are missing."""
-    add_command = AddCommand()
+    # CLI 'add' command without providing a name (error case)
+    monkeypatch.setattr(sys, "argv", ["app", "add"])
+    with pytest.raises(SystemExit) as exc4:
+        app.start()
+    assert exc4.value.code == 1
+    out4 = capsys.readouterr().out
+    assert "requires a name" in out4
 
-    # Case 1: No arguments provided
-    add_command.execute()
-    captured = capsys.readouterr()
-    assert "Usage: add <num1> <num2>" in captured.out
+def test_start_add_empty_name(monkeypatch, capsys):
+    # User enters 'add' then provides an empty name (just Enter)
+    monkeypatch.setattr(sys, "argv", ["app"])
+    inputs = iter(["add", "", "exit"])
+    monkeypatch.setattr(builtins, "input", lambda prompt=None: next(inputs))
+    with pytest.raises(SystemExit) as exc:
+        app.start()
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    # Expect an error about empty name and no successful "Added ..." message
+    assert "name cannot be empty" in out
+    assert "Added" not in out
 
-    # Case 2: Only one argument provided
-    add_command.execute("5")
-    captured = capsys.readouterr()
-    assert "Usage: add <num1> <num2>" in captured.out
+def test_start_add_no_name_provided(monkeypatch, capsys):
+    # User enters 'add' and then does not provide any name (simulates EOF or no further input)
+    monkeypatch.setattr(sys, "argv", ["app"])
+    inputs = iter(["add"])  # no second input for name
+    monkeypatch.setattr(builtins, "input", lambda prompt=None: next(inputs))
+    # start() should handle the missing name and break out without exception
+    app.start()
+    out = capsys.readouterr().out
+    assert "no name provided for 'add'" in out
+    assert "Added" not in out
 
-def test_add_command_invalid_number(capsys):
-    """Test the AddCommand with non-numeric input."""
-    add_command = AddCommand()
-    add_command.execute("five", "three")
-    captured = capsys.readouterr()
-    assert "Invalid number input. Use numeric values." in captured.out
+def test_start_unknown_command_exitcall(monkeypatch, capsys):
+    # Monkeypatch sys.exit to capture calls for an unknown CLI command (no interactive loop after)
+    calls = []
+    monkeypatch.setattr(sys, "exit", lambda code=0: calls.append(code))
+    monkeypatch.setattr(sys, "argv", ["app", "badcmd"])
+    app.start()  # with sys.exit patched, this will return instead of raising
+    # Verify a single exit call with code 1 (unknown command)
+    assert calls == [1]
+    out = capsys.readouterr().out
+    assert "Unknown command: badcmd" in out
 
-# ✅ TEST SUBTRACT COMMAND
-def test_subtract_command_valid_input(capsys):
-    """Test the SubtractCommand with valid input."""
-    subtract_command = SubtractCommand()
-    subtract_command.execute("8", "2")
-    captured = capsys.readouterr()
-    assert "8 - 2 = 6" in captured.out
-
-# ✅ TEST MULTIPLY COMMAND
-def test_multiply_command_valid_input(capsys):
-    """Test the MultiplyCommand with valid input."""
-    multiply_command = MultiplyCommand()
-    multiply_command.execute("4", "3")
-    captured = capsys.readouterr()
-    assert "4 x 3 = 12" in captured.out
-
-# ✅ TEST DIVIDE COMMAND
-def test_divide_command_valid_input(capsys):
-    """Test the DivideCommand with valid input."""
-    divide_command = DivideCommand()
-    divide_command.execute("10", "2")
-    captured = capsys.readouterr()
-    assert "10 / 2 = 5" in captured.out
-
-def test_divide_command_zero_division(capsys):
-    """Test DivideCommand for division by zero."""
-    divide_command = DivideCommand()
-    divide_command.execute("10", "0")
-    captured = capsys.readouterr()
-    assert "Error: Cannot divide by zero." in captured.out
-
-# ✅ TEST HISTORY COMMAND
-def test_history_command_no_history(capsys):
-    """Test the HistoryCommand when there is no history."""
-    history_command = HistoryCommand()
-    history_command.execute()
-    captured = capsys.readouterr()
-    assert "No calculation history available." in captured.out
-
-def test_history_command_with_entries(clean_calculations, capsys):
-    """Test the HistoryCommand when there are history entries."""
-    calc_instance = Calculations()
-    calc_instance.add_calculation(Calculation(Decimal(10), Decimal(5), "add", Decimal(15)))
-    history_command = HistoryCommand()
-    history_command.execute()
-    captured = capsys.readouterr()
-    assert "10 + 5 = 15" in captured.out or "Calculation(10, 5, add, 15)" in captured.out
-
-# ✅ TEST MENU COMMAND
-def test_menu_command(capsys, import_app):
-    """Test that the 'menu' command lists all available commands."""
-    app_instance = import_app
-    app_instance.command_handler.execute_command("menu")
-    captured = capsys.readouterr()
-    assert "Available Commands:" in captured.out
-    assert "- add" in captured.out
-    assert "- subtract" in captured.out
-    assert "- multiply" in captured.out
-    assert "- divide" in captured.out
-    assert "- history" in captured.out
-    assert "- menu" in captured.out  # Menu should be listed itself
-
-# ✅ TEST REPL COMMAND EXECUTION
-@pytest.mark.skip(reason="sys.exit() terminates the test")
-def test_start_method_exit(monkeypatch, import_app):
-    """Test that 'exit' command stops the REPL loop."""
-    monkeypatch.setattr("builtins.input", lambda _: "exit")
-    with pytest.raises(SystemExit):
-        app_instance = import_app
-        app_instance.start()
-
-def test_start_method_unknown_command(monkeypatch, import_app):
-    """Test handling of unknown commands in the REPL."""
-    inputs = iter(["unknown_command", "exit"])
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
-    with pytest.raises(SystemExit):
-        app_instance = import_app
-        app_instance.start()
-
-# ✅ TEST BASIC OPERATIONS IN REPL
-def test_basic_operations(monkeypatch, capsys, import_app):
-    """Test that basic operations (add, subtract, multiply, divide) work in the REPL."""
-    app_instance = import_app
-    inputs = iter(["add 5 3", "subtract 8 2", "multiply 4 3", "divide 10 2", "exit"])
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
-    with pytest.raises(SystemExit):
-        app_instance.start()
-    captured = capsys.readouterr()
-    assert "5 + 3 = 8" in captured.out
-    assert "8 - 2 = 6" in captured.out
-    assert "4 x 3 = 12" in captured.out
-    assert "10 / 2 = 5" in captured.out
-
-# ✅ TEST HISTORY PERSISTENCE
-def test_history_persistence(clean_calculations):
-    """Ensure history persists across app instances."""
-    calc_instance = Calculations()
-    calc_instance.add_calculation(Calculation(Decimal(10), Decimal(5), "add", Decimal(15)))
-    new_instance = Calculations()
-    assert len(new_instance.get_history()) == 1
-    df = pd.read_csv(HISTORY_FILE)
-    assert "add" in df["operation"].values
+def test_start_help(monkeypatch, capsys):
+    # The help flag (-h/--help) should display usage and exit with code 0
+    monkeypatch.setattr(sys, "argv", ["app", "--help"])
+    with pytest.raises(SystemExit) as exc:
+        app.start()
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "Usage:" in out and "Commands:" in out
