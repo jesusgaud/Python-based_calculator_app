@@ -67,3 +67,7 @@ jobs:
       - name: Run Tests with Coverage (Parallel Execution)
         run: |
           pytest -m "not skip_load_plugins and not skip_import_error" --cov --cov-report=term-missing --cov-fail-under=90 -n auto
+
+      - name: Run Plugin Tests Sequentially
+        run: |
+          pytest tests/test_plugins_init.py --cov --cov-report=term-missing --cov-fail-under=90
