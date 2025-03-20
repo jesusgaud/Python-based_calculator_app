@@ -17,7 +17,12 @@ It provides an **interactive REPL (Read-Eval-Print Loop)** where users can execu
 ✔️ Saves and loads calculation history using **Pandas & CSV**  
 ✔️ Implements **plugin support** for extending functionality dynamically  
 ✔️ Includes **comprehensive unit tests** with pytest and **code coverage analysis**  
-✔️ Uses **design patterns** to enforce maintainability and extensibility  
+✔️ Uses **design patterns** to enforce maintainability and extensibility
+
+## 📽️ Demo Video
+
+🎬 [Click here to watch the demo](media/JGaud_CalApp_Intro&ShortDemo.mp4)
+
 
 ---
 
