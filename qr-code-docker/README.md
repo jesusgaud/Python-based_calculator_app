@@ -24,15 +24,22 @@ This mini project demonstrates how to generate a **QR code PNG** using a Python 
 ```sh
 From the `qr-code-docker/` directory:
 ```
-
 ```sh
 sudo docker build -t my-qr-app .
-
 ```
-### Run the Container
-```sh
+## 🖼️ Generated QR Code
 
-> Replace `YOUR_GITHUB_USERNAME` and the volume mount path with your own values.
+Scan it with your phone to open your GitHub profile:
+
+```sh
+![My GitHub QR](qr-code-docker/app/qr_codes/mygithubQR.png)
+```
+
+### Run the Container
+```
+Replace `YOUR_GITHUB_USERNAME` and the volume mount path with your own values.
+
+```sh
 sudo docker run -d --name qr-generator \
   -e QR_DATA_URL='https://github.com/YOUR_GITHUB_USERNAME' \
   -e QR_CODE_DIR='qr_codes' \
@@ -43,9 +50,20 @@ sudo docker run -d --name qr-generator \
   my-qr-app
 ```
 ### 📄 Container Logs
-
 ```sh
 sudo docker logs qr-generator
+```
+
+## 🧾 Build Log Output
+```sh
+<pre>
+Sending build context to Docker daemon  ...
+Step 1/5 : FROM python:3.10-slim
+ ---> sha256:...
+...
+Successfully built ad247d76deeb
+Successfully tagged my-qr-app:latest
+</pre>
 ```
 
 ### 🧹 Helpful Docker Commands
