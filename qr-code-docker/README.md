@@ -76,7 +76,18 @@ Successfully tagged my-qr-app:latest
 | `docker rm qr-generator`	| Remove the container |
 | `docker images`	| List Docker images |
 | `docker rmi my-qr-app`	| Delete the image|
+```
+```
+### QR Code
+![alt text](image-1.png)
 
+```
+```
+### QR Code Log
+![alt text](image-2.png)
+
+```
+```
 ## 📜 License
 
 This project is licensed under the **MIT License**.
